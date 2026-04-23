@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+
+  # ─── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       agmy_admin
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Node.js API server ────────────────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ./server/.env
+    environment:
+      DB_HOST: postgres       # override to use Docker service name
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    volumes:
+      # Mount the Python ai_support project so the server can drop files into
+      # knowledge_base/ and call ingest.py / admin_tools.py.
+      # Adjust the host path to where you cloned zentokyo/ai_support.
+      - ${AI_SUPPORT_PATH:-../ai_support}:/ai_support:rw
+      - ./python:/admin_tools:ro
+
+  # ─── React dev server (development only, comment out for production) ────────
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      VITE_API_BASE: http://localhost:3001
+
+volumes:
+  postgres_data:
