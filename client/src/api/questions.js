@@ -6,6 +6,10 @@ export const getQuestions = (params) =>
 export const getQuestionStats = () =>
   api.get('/questions/stats').then((r) => r.data)
 
+/** List all themes (for dropdown selectors) */
+export const getThemes = () =>
+  api.get('/questions/themes').then((r) => r.data)
+
 export const createQuestion = (data) =>
   api.post('/questions', data).then((r) => r.data)
 

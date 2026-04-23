@@ -30,7 +30,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(400).json({ error: 'Email and password are required' })
     }
 
-    const { rows } = await query('SELECT * FROM users WHERE email = $1', [email])
+    const { rows } = await query('SELECT * FROM admin_users WHERE email = $1', [email])
     const user = rows[0]
     if (!user) return res.status(401).json({ error: 'Invalid credentials' })
 
@@ -42,7 +42,7 @@ router.post('/login', async (req, res, next) => {
     const refreshToken = signRefresh(payload)
 
     await query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+      `INSERT INTO admin_refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
       [user.id, hashToken(refreshToken)]
     )
@@ -78,20 +78,20 @@ router.post('/refresh', async (req, res, next) => {
 
     const hash = hashToken(token)
     const { rows } = await query(
-      `SELECT * FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW()`,
+      `SELECT * FROM admin_refresh_tokens WHERE token_hash = $1 AND expires_at > NOW()`,
       [hash]
     )
     if (!rows.length) return res.status(401).json({ error: 'Refresh token revoked' })
 
     // Rotate: delete old, issue new
-    await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [hash])
+    await query('DELETE FROM admin_refresh_tokens WHERE token_hash = $1', [hash])
 
     const newPayload     = { sub: payload.sub, email: payload.email, role: payload.role }
     const accessToken    = signAccess(newPayload)
     const newRefresh     = signRefresh(newPayload)
 
     await query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+      `INSERT INTO admin_refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
       [payload.sub, hashToken(newRefresh)]
     )
@@ -114,7 +114,7 @@ router.post('/logout', async (req, res, next) => {
   try {
     const token = req.cookies.refreshToken
     if (token) {
-      await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [hashToken(token)])
+      await query('DELETE FROM admin_refresh_tokens WHERE token_hash = $1', [hashToken(token)])
     }
     res.clearCookie('refreshToken')
     res.json({ message: 'Logged out' })

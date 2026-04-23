@@ -1,43 +1,187 @@
 import { useState, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Trash2, FileText, RefreshCw, UploadCloud } from 'lucide-react'
+import { Upload, Trash2, FileText, RefreshCw, UploadCloud, ChevronDown, ChevronRight, FolderOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { getDocuments, uploadDocument, deleteDocument } from '../api/documents.js'
-import DataTable from '../components/Table/DataTable.jsx'
 import ConfirmDialog from '../components/Modal/ConfirmDialog.jsx'
-import { formatBytes, formatDate } from '../utils/format.js'
+import Modal from '../components/Modal/Modal.jsx'
+import { formatDate } from '../utils/format.js'
 
-function StatusBadge({ status }) {
-  const map = {
-    processing: { cls: 'bg-amber-100 text-amber-700', label: 'Обработка' },
-    indexed:    { cls: 'bg-green-100 text-green-700',  label: 'Проиндексирован' },
-    error:      { cls: 'bg-red-100  text-red-700',     label: 'Ошибка' },
-  }
-  const { cls, label } = map[status] || { cls: 'bg-slate-100 text-slate-600', label: status }
-  return <span className={`badge ${cls}`}>{label}</span>
-}
-
-export default function KnowledgeBasePage() {
+// ─── Upload Modal ─────────────────────────────────────────────────────────────
+function UploadModal({ open, onClose }) {
   const qc = useQueryClient()
+  const [title,     setTitle]     = useState('')
+  const [files,     setFiles]     = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [pct,       setPct]       = useState(0)
   const fileRef = useRef(null)
 
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [dragging,     setDragging]     = useState(false)
-  const [uploading,    setUploading]    = useState(false)
-  const [uploadPct,    setUploadPct]    = useState(0)
+  function reset() { setTitle(''); setFiles([]); setPct(0) }
 
-  const { data: documents = [], isLoading, refetch } = useQuery({
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!title.trim())  return toast.error('Укажи название темы')
+    if (!files.length)  return toast.error('Добавь хотя бы один файл')
+
+    setUploading(true)
+    try {
+      await uploadDocument(title, files, (evt) => {
+        if (evt.total) setPct(Math.round((evt.loaded / evt.total) * 100))
+      })
+      toast.success(`Тема «${title}» создана`)
+      qc.invalidateQueries({ queryKey: ['documents'] })
+      qc.invalidateQueries({ queryKey: ['document-stats'] })
+      reset()
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Ошибка загрузки')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function handleFilePick(e) {
+    setFiles(Array.from(e.target.files))
+  }
+
+  return (
+    <Modal open={open} onClose={() => { reset(); onClose() }} title="Добавить тему в базу знаний" size="md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="label">Название темы *</label>
+          <input
+            type="text"
+            className="input"
+            placeholder="Например: Гражданское право"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </div>
+
+        <div>
+          <label className="label">Файлы темы * (PDF, TXT, DOCX)</label>
+          <div
+            onClick={() => fileRef.current?.click()}
+            className="cursor-pointer rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.txt,.docx"
+              multiple
+              className="hidden"
+              onChange={handleFilePick}
+            />
+            <UploadCloud size={28} className="mx-auto mb-2 text-slate-400" />
+            {files.length > 0 ? (
+              <div className="space-y-1">
+                {files.map((f, i) => (
+                  <p key={i} className="text-sm text-slate-700">
+                    <FileText size={13} className="inline mr-1 text-slate-400" />
+                    {f.name}
+                  </p>
+                ))}
+                <p className="text-xs text-slate-400 mt-1">Нажми снова, чтобы изменить</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-slate-600">Выбрать файлы</p>
+                <p className="text-xs text-slate-400">до 50 МБ каждый</p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {uploading && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Загрузка…</span><span>{pct}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
+          <button type="button" className="btn-secondary" onClick={() => { reset(); onClose() }}>
+            Отмена
+          </button>
+          <button type="submit" className="btn-primary" disabled={uploading}>
+            {uploading
+              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              : <Upload size={15} />}
+            {uploading ? 'Загружаем...' : 'Создать тему'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ─── Theme Row ────────────────────────────────────────────────────────────────
+function ThemeRow({ theme, onDelete }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+
+        <FolderOpen size={18} className="text-blue-500 shrink-0" />
+
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-800 truncate">{theme.title}</p>
+          <p className="text-xs text-slate-400">
+            {theme.file_count} {pluralFiles(Number(theme.file_count))}
+          </p>
+        </div>
+
+        <button
+          onClick={() => onDelete(theme)}
+          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors shrink-0"
+        >
+          <Trash2 size={13} />
+          Удалить тему
+        </button>
+      </div>
+
+      {expanded && theme.files?.length > 0 && (
+        <div className="border-t border-slate-100 bg-slate-50 px-4 py-2 space-y-1">
+          {theme.files.map((f) => (
+            <div key={f.file_id} className="flex items-center gap-2 text-sm text-slate-600">
+              <FileText size={13} className="text-slate-400 shrink-0" />
+              <span className="truncate">{f.filename}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function KnowledgeBasePage() {
+  const qc = useQueryClient()
+  const [uploadOpen,   setUploadOpen]   = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+
+  const { data: themes = [], isLoading, refetch } = useQuery({
     queryKey: ['documents'],
     queryFn: getDocuments,
-    refetchInterval: (data) =>
-      (data ?? []).some((d) => d.status === 'processing') ? 5000 : false,
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id) => deleteDocument(id),
     onSuccess: () => {
-      toast.success('Документ удалён')
+      toast.success('Тема удалена')
       qc.invalidateQueries({ queryKey: ['documents'] })
       qc.invalidateQueries({ queryKey: ['document-stats'] })
       setDeleteTarget(null)
@@ -45,83 +189,16 @@ export default function KnowledgeBasePage() {
     onError: (err) => toast.error(err.response?.data?.error || 'Ошибка удаления'),
   })
 
-  async function handleUpload(files) {
-    if (!files?.length) return
-    const file = files[0]
-
-    setUploading(true)
-    setUploadPct(0)
-    try {
-      await uploadDocument(file, (evt) => {
-        if (evt.total) setUploadPct(Math.round((evt.loaded / evt.total) * 100))
-      })
-      toast.success(`«${file.name}» загружен. Идёт индексация…`)
-      qc.invalidateQueries({ queryKey: ['documents'] })
-      qc.invalidateQueries({ queryKey: ['document-stats'] })
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Ошибка загрузки')
-    } finally {
-      setUploading(false)
-      setUploadPct(0)
-      if (fileRef.current) fileRef.current.value = ''
-    }
-  }
-
-  const onDrop = useCallback((e) => {
-    e.preventDefault()
-    setDragging(false)
-    handleUpload(e.dataTransfer.files)
-  }, [])
-
-  const columns = [
-    {
-      key: 'original_name',
-      header: 'Файл',
-      render: (v) => (
-        <div className="flex items-center gap-2">
-          <FileText size={16} className="shrink-0 text-slate-400" />
-          <span className="max-w-xs truncate font-medium">{v}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'file_size',
-      header: 'Размер',
-      render: (v) => formatBytes(v),
-    },
-    {
-      key: 'uploaded_at',
-      header: 'Дата загрузки',
-      render: (v) => formatDate(v),
-    },
-    {
-      key: 'status',
-      header: 'Статус',
-      render: (v) => <StatusBadge status={v} />,
-    },
-    {
-      key: 'actions',
-      header: '',
-      cellClassName: 'text-right',
-      render: (_, row) => (
-        <button
-          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
-          onClick={() => setDeleteTarget(row)}
-        >
-          <Trash2 size={14} />
-          Удалить
-        </button>
-      ),
-    },
-  ]
+  const totalFiles = themes.reduce((acc, t) => acc + Number(t.file_count), 0)
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">База знаний</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {documents.length} {pluralDocs(documents.length)} · PDF, TXT, DOCX
+            {themes.length} {pluralThemes(themes.length)} · {totalFiles} {pluralFiles(totalFiles)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -129,83 +206,63 @@ export default function KnowledgeBasePage() {
             <RefreshCw size={15} />
             Обновить
           </button>
-          <button
-            className="btn-primary"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-          >
+          <button className="btn-primary" onClick={() => setUploadOpen(true)}>
             <Upload size={15} />
-            Загрузить файл
+            Добавить тему
           </button>
         </div>
       </div>
 
-      {/* Drop zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        onClick={() => !uploading && fileRef.current?.click()}
-        className={clsx(
-          'cursor-pointer rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors',
-          dragging
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-slate-300 bg-white hover:border-blue-400 hover:bg-slate-50',
-          uploading && 'pointer-events-none opacity-70'
-        )}
-      >
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf,.txt,.docx"
-          className="hidden"
-          onChange={(e) => handleUpload(e.target.files)}
-        />
-        <UploadCloud
-          size={36}
-          className={clsx('mx-auto mb-3', dragging ? 'text-blue-500' : 'text-slate-400')}
-        />
-        {uploading ? (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-blue-600">Загрузка… {uploadPct}%</p>
-            <div className="mx-auto h-1.5 w-48 overflow-hidden rounded-full bg-slate-200">
-              <div
-                className="h-full rounded-full bg-blue-600 transition-all"
-                style={{ width: `${uploadPct}%` }}
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm font-medium text-slate-700">
-              Перетащите файл сюда или нажмите для выбора
-            </p>
-            <p className="mt-1 text-xs text-slate-400">PDF, TXT, DOCX · до 50 МБ</p>
-          </>
-        )}
-      </div>
+      {/* Themes list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent mr-3" />
+          Загрузка…
+        </div>
+      ) : themes.length === 0 ? (
+        <div className="card flex flex-col items-center justify-center py-16 text-center">
+          <FolderOpen size={40} className="mb-3 text-slate-300" />
+          <p className="font-medium text-slate-500">База знаний пуста</p>
+          <p className="text-sm text-slate-400 mt-1">Добавьте первую тему с документами</p>
+          <button className="btn-primary mt-4" onClick={() => setUploadOpen(true)}>
+            <Upload size={15} />
+            Добавить тему
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {themes.map((theme) => (
+            <ThemeRow
+              key={theme.id}
+              theme={theme}
+              onDelete={setDeleteTarget}
+            />
+          ))}
+        </div>
+      )}
 
-      <DataTable
-        columns={columns}
-        data={documents}
-        loading={isLoading}
-        emptyMessage="Документы не загружены"
-      />
+      <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
 
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
         loading={deleteMutation.isPending}
-        title="Удалить документ"
-        message={`Вы уверены, что хотите удалить «${deleteTarget?.original_name}»? Чанки будут удалены из ChromaDB.`}
+        title="Удалить тему"
+        message={`Удалить тему «${deleteTarget?.title}» и все ${deleteTarget?.file_count} файлов? Файлы будут удалены из хранилища.`}
       />
     </div>
   )
 }
 
-function pluralDocs(n) {
-  if (n % 10 === 1 && n % 100 !== 11) return 'документ'
-  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return 'документа'
-  return 'документов'
+function pluralThemes(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'тема'
+  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return 'темы'
+  return 'тем'
+}
+
+function pluralFiles(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'файл'
+  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return 'файла'
+  return 'файлов'
 }

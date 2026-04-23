@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { FileText, HelpCircle, CheckCircle, AlertCircle } from 'lucide-react'
-import { getDocumentStats } from '../api/documents.js'
+import { FileText, HelpCircle, FolderOpen, BookOpen } from 'lucide-react'
+import { getDocumentStats, getDocuments } from '../api/documents.js'
 import { getQuestionStats } from '../api/questions.js'
-import { getDocuments } from '../api/documents.js'
-import { formatBytes, formatDate } from '../utils/format.js'
+import { formatDate } from '../utils/format.js'
 
 function StatCard({ icon: Icon, label, value, sub, color }) {
   const colors = {
@@ -30,19 +29,6 @@ function StatCard({ icon: Icon, label, value, sub, color }) {
   )
 }
 
-function StatusBadge({ status }) {
-  const styles = {
-    processing: 'bg-amber-100 text-amber-700',
-    indexed:    'bg-green-100 text-green-700',
-    error:      'bg-red-100 text-red-600',
-  }
-  const labels = { processing: 'Обработка', indexed: 'Проиндексирован', error: 'Ошибка' }
-  return (
-    <span className={`badge ${styles[status] || 'bg-slate-100 text-slate-600'}`}>
-      {labels[status] || status}
-    </span>
-  )
-}
 
 export default function DashboardPage() {
   const { data: docStats, isLoading: docLoading } = useQuery({
@@ -60,9 +46,7 @@ export default function DashboardPage() {
     queryFn: getDocuments,
   })
 
-  const recentDocs = [...documents]
-    .sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at))
-    .slice(0, 5)
+  const recentDocs = [...documents].slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -74,30 +58,28 @@ export default function DashboardPage() {
       {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          icon={FileText}
-          label="Документов"
-          value={docLoading ? '…' : docStats?.total}
-          sub={docStats ? `${formatBytes(Number(docStats.total_size))} всего` : undefined}
+          icon={FolderOpen}
+          label="Тем в базе знаний"
+          value={docLoading ? '…' : docStats?.total_themes}
           color="blue"
         />
         <StatCard
-          icon={CheckCircle}
-          label="Проиндексировано"
-          value={docLoading ? '…' : docStats?.indexed}
+          icon={FileText}
+          label="Файлов всего"
+          value={docLoading ? '…' : docStats?.total_files}
           color="green"
         />
         <StatCard
           icon={HelpCircle}
           label="Вопросов Q&A"
           value={qLoading ? '…' : qStats?.total}
-          sub={qStats ? `${qStats.active} активных` : undefined}
           color="blue"
         />
         <StatCard
-          icon={AlertCircle}
-          label="Ошибок загрузки"
-          value={docLoading ? '…' : docStats?.error}
-          color="red"
+          icon={BookOpen}
+          label="Категорий вопросов"
+          value={qLoading ? '…' : qStats?.by_theme?.length ?? 0}
+          color="amber"
         />
       </div>
 
@@ -115,17 +97,13 @@ export default function DashboardPage() {
             recentDocs.map((doc) => (
               <li key={doc.id} className="flex items-center justify-between px-6 py-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <FileText size={16} className="shrink-0 text-slate-400" />
+                  <FolderOpen size={16} className="shrink-0 text-blue-400" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-700">
-                      {doc.original_name}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {formatBytes(doc.file_size)} · {formatDate(doc.uploaded_at)}
-                    </p>
+                    <p className="truncate text-sm font-medium text-slate-700">{doc.title}</p>
+                    <p className="text-xs text-slate-400">{doc.file_count} файлов</p>
                   </div>
                 </div>
-                <StatusBadge status={doc.status} />
+                <span className="badge bg-blue-50 text-blue-700">Тема #{doc.theme_order}</span>
               </li>
             ))
           )}
@@ -133,16 +111,16 @@ export default function DashboardPage() {
       </div>
 
       {/* Q&A by category */}
-      {qStats?.by_category?.length > 0 && (
+      {qStats?.by_theme?.length > 0 && (
         <div className="card">
           <div className="border-b border-slate-200 px-6 py-4">
-            <h2 className="text-sm font-semibold text-slate-700">Q&A по категориям</h2>
+            <h2 className="text-sm font-semibold text-slate-700">Q&A по темам</h2>
           </div>
           <ul className="divide-y divide-slate-100">
-            {qStats.by_category.map((cat) => (
-              <li key={cat.category} className="flex items-center justify-between px-6 py-3">
-                <span className="text-sm text-slate-700">{cat.category}</span>
-                <span className="badge bg-blue-50 text-blue-700">{cat.count}</span>
+            {qStats.by_theme.map((t) => (
+              <li key={t.theme} className="flex items-center justify-between px-6 py-3">
+                <span className="text-sm text-slate-700">{t.theme}</span>
+                <span className="badge bg-blue-50 text-blue-700">{t.count}</span>
               </li>
             ))}
           </ul>
