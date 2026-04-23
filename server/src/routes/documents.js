@@ -148,6 +148,46 @@ router.post('/upload', upload.array('files', 20), async (req, res, next) => {
   }
 })
 
+// ─── POST /api/documents/:id/files ──────────────────────────────────────────
+// Add files to an existing theme
+router.post('/:id/files', upload.array('files', 20), async (req, res, next) => {
+  const { id } = req.params
+  if (!req.files?.length) return res.status(400).json({ error: 'At least one file is required' })
+
+  const client = await (await import('../db/index.js')).getClient()
+  try {
+    const { rows: themeRows } = await client.query(
+      'SELECT theme_id, title FROM theme WHERE theme_id = $1', [id]
+    )
+    if (!themeRows.length) return res.status(404).json({ error: 'Theme not found' })
+
+    await client.query('BEGIN')
+
+    const addedFiles = []
+    for (const f of req.files) {
+      const ext      = extname(f.originalname).toLowerCase()
+      const basename = f.originalname.replace(/\.[^/.]+$/, '')
+      const filename = toAsciiFilename(basename) + ext
+      const fileId   = uuidv4()
+
+      await uploadToS3(f.buffer, filename, f.mimetype)
+      await client.query('INSERT INTO file (file_id, filename) VALUES ($1, $2)', [fileId, filename])
+      await client.query(
+        'INSERT INTO theme_file (theme_id, file_id) VALUES ($1, $2)', [id, fileId]
+      )
+      addedFiles.push({ file_id: fileId, filename })
+    }
+
+    await client.query('COMMIT')
+    res.status(201).json({ added: addedFiles, theme_id: id })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally {
+    client.release()
+  }
+})
+
 // ─── DELETE /api/documents/:id ───────────────────────────────────────────────
 // :id = theme_id (UUID)
 router.delete('/:id', async (req, res, next) => {

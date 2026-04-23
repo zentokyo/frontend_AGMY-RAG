@@ -25,3 +25,18 @@ export const uploadDocument = (title, files, onUploadProgress) => {
 
 export const deleteDocument = (id) =>
   api.delete(`/documents/${id}`).then((r) => r.data)
+
+/**
+ * Add files to an existing theme.
+ * @param {string} themeId
+ * @param {File[]} files
+ * @param {Function} onUploadProgress
+ */
+export const addFilesToTheme = (themeId, files, onUploadProgress) => {
+  const form = new FormData()
+  for (const f of files) form.append('files', f)
+  return api.post(`/documents/${themeId}/files`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
+  }).then((r) => r.data)
+}
