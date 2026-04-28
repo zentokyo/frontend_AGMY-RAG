@@ -1,0 +1,30 @@
+{
+  "name": "agmy-admin-server",
+  "version": "1.0.0",
+  "description": "Node.js/Express backend for AGMY RAG admin panel",
+  "type": "module",
+  "main": "src/app.js",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js",
+    "test": "node --test ../../tests/api/**/*.test.js",
+    "db:migrate": "node src/db/migrate.js",
+    "db:seed": "node src/db/seed.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1035.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.3",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

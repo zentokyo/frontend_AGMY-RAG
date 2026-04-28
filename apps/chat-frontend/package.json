@@ -1,0 +1,36 @@
+{
+  "name": "agmy-web-portal",
+  "version": "1.0.0",
+  "description": "AGMY RAG — пользовательский веб-портал (экзамены, теория, статистика)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "e2e:setup": "node e2e/setup-db.mjs",
+    "e2e": "npm run e2e:setup && playwright test"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.74.4",
+    "axios": "^1.7.9",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.4.1",
+    "react-hot-toast": "^2.5.2",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.2",
+    "pg": "^8.16.3",
+    "tailwindcss": "^3.4.17",
+    "vite": "^6.1.0"
+  }
+}

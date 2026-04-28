@@ -1,60 +1,162 @@
-version: '3.9'
+# AGMY RAG — единый стек: PostgreSQL, MinIO, FastAPI, Telegram-бот, админ-панель (Node + React)
+# Скопируйте .env.example → .env и при необходимости поправьте секреты.
 
 services:
 
-  # ─── PostgreSQL ────────────────────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
+  assistant_db:
+    container_name: assistant_db
+    image: postgres:17-alpine
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
-      POSTGRES_DB:       agmy_admin
-      POSTGRES_USER:     postgres
-      POSTGRES_PASSWORD: changeme
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-example}
+      POSTGRES_DB: ${POSTGRES_DB:-assistant}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - assistant_pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-assistant}']
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # ─── Node.js API server ────────────────────────────────────────────────────
-  server:
+  assistant-file-storage:
+    container_name: assistant-file-storage
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - '${S3_PORT:-7000}:${S3_PORT:-7000}'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: ${S3_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_PASSWORD:-minioadmin}
+      MINIO_ADDRESS: :${S3_PORT:-7000}
+      MINIO_CONSOLE_ADDRESS: :9001
+    volumes:
+      - minio_data:/data
+    entrypoint: minio server /data
+
+  create-buckets:
+    container_name: create-buckets
+    image: minio/mc
+    depends_on:
+      - assistant-file-storage
+    volumes:
+      - ./theme_files:/theme_files:ro
+    entrypoint: >
+      /bin/bash -c "
+      sleep 3;
+      /usr/bin/mc alias set myminio http://assistant-file-storage:${S3_PORT:-7000} ${S3_USER:-minioadmin} ${S3_PASSWORD:-minioadmin};
+      /usr/bin/mc mb --ignore-existing myminio/${S3_BUCKET:-assistant};
+      /usr/bin/mc cp --recursive /theme_files/* myminio/${S3_BUCKET:-assistant} 2>/dev/null || true;
+      exit 0;
+      "
+
+  assistant_backend:
+    container_name: assistant_backend
     build:
-      context: ./server
+      context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     depends_on:
-      postgres:
+      assistant_db:
         condition: service_healthy
-    env_file: ./server/.env
-    environment:
-      DB_HOST: postgres       # override to use Docker service name
-      NODE_ENV: production
+      assistant-file-storage:
+        condition: service_started
     ports:
-      - "3001:3001"
-    volumes:
-      # Mount the Python ai_support project so the server can drop files into
-      # knowledge_base/ and call ingest.py / admin_tools.py.
-      # Adjust the host path to where you cloned zentokyo/ai_support.
-      - ${AI_SUPPORT_PATH:-../ai_support}:/ai_support:rw
-      - ./python:/admin_tools:ro
+      - '8000:8000'
 
-  # ─── React dev server (development only, comment out for production) ────────
-  client:
+  assistant_bot:
+    container_name: assistant_bot
     build:
-      context: ./client
+      context: ./bot
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      - assistant_backend
+
+  # Админ-панель: API + собранный React (см. Dockerfile в корне)
+  admin-server:
+    container_name: agmy_admin_server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_HOST: assistant_db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-assistant}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-example}
+      NODE_ENV: production
+      S3_ENDPOINT: http://assistant-file-storage:${S3_PORT:-7000}
+      STORAGE_TYPE: s3
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:3001}
+      BACKEND_ROOT: /backend
+      INGEST_SCRIPT_PATH: /backend/src/core/rag/ingest.py
+      KB_PATH: /backend/knowledge_base
+      CHROMA_DB_PATH: /backend/src/core/rag/db_metadata_v5
+      ADMIN_TOOLS_PATH: /admin_tools/admin_tools.py
+    ports:
+      - '3001:3001'
+    depends_on:
+      assistant_db:
+        condition: service_healthy
+      assistant_backend:
+        condition: service_started
+      assistant-file-storage:
+        condition: service_started
+    volumes:
+      - ./python:/admin_tools:ro
+      - ./backend:/backend:rw
+
+  # Локальная разработка фронта админки (опционально)
+  admin-client-dev:
+    profiles: ['dev']
+    build:
+      context: ./apps/admin-frontend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
-      - ./client:/app
+      - ./apps/admin-frontend:/app
       - /app/node_modules
     environment:
       VITE_API_BASE: http://localhost:3001
+    depends_on:
+      - admin-server
+
+  # Локальная разработка фронта веб-чата (опционально)
+  chat-client-dev:
+    profiles: ['dev']
+    build:
+      context: ./apps/chat-frontend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - '5174:5174'
+    volumes:
+      - ./apps/chat-frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_BASE: http://localhost:3001
+    depends_on:
+      - admin-server
 
 volumes:
-  postgres_data:
+  minio_data:
+  assistant_pgdata:

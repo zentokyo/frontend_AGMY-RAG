@@ -1,0 +1,31 @@
+services:
+  assistant-file-storage:
+    container_name: assistant-file-storage
+    image: minio/minio:latest
+    ports:
+      - ${S3_PORT}:${S3_PORT}
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_USER}
+      MINIO_ROOT_PASSWORD: ${S3_PASSWORD}
+      MINIO_ADDRESS: :${S3_PORT}
+      MINIO_CONSOLE_ADDRESS: :9001
+    volumes:
+      - minio_data:/data
+    entrypoint: minio server /data
+
+  create-buckets:
+    container_name: create-buckets
+    image: minio/mc
+    depends_on:
+      - assistant-file-storage
+    entrypoint: >
+      /bin/bash -c "
+      sleep 3;
+      /usr/bin/mc alias set myminio http://assistant-file-storage:${S3_PORT} ${S3_USER} ${S3_PASSWORD};
+      /usr/bin/mc mb myminio/${S3_BUCKET};
+      exit 0;
+      "
+
+volumes:
+  minio_data:

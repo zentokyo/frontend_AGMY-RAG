@@ -1,11 +1,25 @@
 node_modules/
-server/node_modules/
-client/node_modules/
+apps/api/node_modules/
+apps/admin-frontend/node_modules/
+apps/chat-frontend/node_modules/
 
-server/.env
-server/uploads/
+# Env
+.env
+apps/api/.env
+apps/api/uploads/
 
-server/public/
+apps/api/public/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.idea/
+
+# Backend / RAG артефакты (при необходимости раскомментируйте)
+# backend/knowledge_base/*
+# !backend/knowledge_base/.gitkeep
+# backend/src/core/rag/db_metadata_v5/
 
 *.log
 .DS_Store
