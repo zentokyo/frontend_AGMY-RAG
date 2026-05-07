@@ -4,6 +4,7 @@ from aiobotocore.client import AioBaseClient
 from aiobotocore.session import ClientCreatorContext, get_session
 from botocore.client import Config as ClientConfig
 from dishka import Provider, from_context, Scope, provide, make_async_container
+from langchain_chroma import Chroma
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, async_sessionmaker, AsyncSession
 
 from src.config import Config, config
@@ -42,7 +43,7 @@ from src.core.commons.interfaces.storages.s3 import S3Storage
 from src.core.commons.storages.s3 import MinioS3Storage
 from src.core.commons.uow.base import UnitOfWork
 from src.core.commons.uow.sql import SQLAlchemyUnitOfWork
-from src.core.rag.main import GigaChatLiteLLM
+from src.core.rag import GigaChatLiteLLM, GigaChatEmbeddings, CHROMA_PATH
 
 
 class SQLAlchemyProvider(Provider):
@@ -108,19 +109,20 @@ class SQLAlchemyUnitOfWorkProvider(Provider):
 class AssistantProvider(Provider):
     scope = Scope.REQUEST
 
-    # LLM
-    #giga_chat_auth = provide(GigaChatAuth, scope=Scope.APP)
-    #embeddings = provide(GigaChatEmbeddings, scope=Scope.APP)
-#
-    #@provide(scope=Scope.APP)
-    #async def provide_reranker(self) -> LocalReranker:
-    #    return LocalReranker(RERANKER_MODEL)
-#
-    #@provide(scope=Scope.APP)
-    #async def provide_chroma_db(self, embeddings: GigaChatEmbeddings) -> Chroma:
-    #    return Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
-
+    # LLM — синглтон на уровне приложения (токен обновляется автоматически внутри)
     model = provide(GigaChatLiteLLM, scope=Scope.APP)
+
+    # Embeddings — синглтон на уровне приложения
+    embeddings = provide(GigaChatEmbeddings, scope=Scope.APP)
+
+    @provide(scope=Scope.APP)
+    def provide_chroma_db(self, embeddings: GigaChatEmbeddings) -> Chroma:
+        """Chroma DB — синглтон на уровне приложения.
+
+        Инициализируется один раз при старте, а не на каждый запрос.
+        Это избегает повторного открытия SQLite файла (66 МБ) на каждый ответ.
+        """
+        return Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
 
     # repositories
     question_repository = provide(SQLAlchemyQuestionRepository, provides=QuestionRepository)

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 
@@ -13,6 +14,8 @@ from src.core.assistant.interfaces.repositories.exam import ExamRepository
 from src.core.assistant.interfaces.repositories.exam_question import ExamQuestionRepository
 from src.core.assistant.interfaces.repositories.question import QuestionRepository
 from src.core.assistant.interfaces.repositories.theme import ThemeRepository
+
+logger = logging.getLogger(__name__)
 
 
 class BaseExamQuestionUseCase:
@@ -35,6 +38,23 @@ class AskExamQuestionUseCase(BaseExamQuestionUseCase):
         self._answer_repository = answer_repository
         super().__init__(exam_question_repository)
 
+    async def _complete_exam(self, exam, theme) -> None:
+        """Завершить экзамен: выставить статус, оценку, время окончания."""
+        exam.status = ExamStatus.COMPLETED
+        exam.end_exam = datetime.now()
+        if theme is not None:
+            correct_answer_count = await self._answer_repository.get_correct_answers_count(exam.exam_id)
+            max_theme_question_count = await self._question_repository.get_question_count(theme.theme_id)
+            logger.info("Экзамен %s завершается: %d/%d правильных ответов",
+                        exam.exam_id, correct_answer_count, max_theme_question_count)
+            if correct_answer_count == max_theme_question_count:
+                exam.rate = ExamRate.ALL_CORRECT
+            else:
+                exam.rate = ExamRate.BAD
+        else:
+            exam.rate = ExamRate.BAD
+        await self._exam_repository.update_exam(exam, autocommit=True)
+
     async def __call__(self, ask_exam_question_dto: AskExamQuestionDTO) -> ExamQuestion:
         exam = await self._exam_repository.get_user_in_work_exam(ask_exam_question_dto.user_id)
         theme = await self._theme_repository.get_theme_by_title(exam.theme.title)
@@ -45,27 +65,19 @@ class AskExamQuestionUseCase(BaseExamQuestionUseCase):
         exam_question_list = await self._exam_question_repository.get_exam_question_list(exam.exam_id)
         question_list = [exam_question.question for exam_question in exam_question_list]
 
-        try:  # Костыль!
+        try:
             if theme is None:
                 question = await self._question_repository.get_random_question(exclude=question_list)
             else:
                 question = await self._question_repository.get_random_question_for_theme(theme=theme,
                                                                                          exclude=question_list)
         except ExamQuestionNotFoundException:
-            exam.status = ExamStatus.COMPLETED
-            exam.end_exam = datetime.now()
-            if theme is not None:
-                correct_answer_count = await self._answer_repository.get_correct_answers_count(exam.exam_id)
-                max_theme_question_count = await self._question_repository.get_question_count(theme.theme_id)
-                print(correct_answer_count, max_theme_question_count)
-                if correct_answer_count == max_theme_question_count:
-                    exam.rate = ExamRate.ALL_CORRECT
-                else:
-                    exam.rate = ExamRate.BAD
-            else:
-                exam.rate = ExamRate.BAD
-            await self._exam_repository.update_exam(exam, autocommit=True)
-            raise UserInWorkExamNotFoundException(ask_exam_question_dto.user_id)  # Костыльный костыль!
+            # Вопросы закончились — завершаем экзамен
+            logger.info("Вопросы закончились для экзамена %s, завершаем.", exam.exam_id)
+            await self._complete_exam(exam, theme)
+            # TODO: Использовать отдельное исключение ExamCompletedException вместо
+            #  UserInWorkExamNotFoundException для корректной семантики.
+            raise UserInWorkExamNotFoundException(ask_exam_question_dto.user_id)
 
         exam_question = ExamQuestion(
             exam_id=exam.exam_id,

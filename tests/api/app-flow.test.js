@@ -41,17 +41,52 @@ test.before(async () => {
       theme_id UUID NOT NULL REFERENCES theme(theme_id)
     );
   `)
+  // Tables needed for course structure (referenced by FK from exam)
+  await query(`
+    CREATE TABLE IF NOT EXISTS file (
+      file_id UUID PRIMARY KEY,
+      filename VARCHAR(500) NOT NULL
+    );
+  `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS theme_file (
+      theme_id UUID REFERENCES theme(theme_id),
+      file_id  UUID REFERENCES file(file_id),
+      PRIMARY KEY (theme_id, file_id)
+    );
+  `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS course_block (
+      id          SERIAL PRIMARY KEY,
+      title       VARCHAR(255) NOT NULL,
+      description TEXT,
+      block_order INTEGER NOT NULL DEFAULT 0
+    );
+  `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS block_topic (
+      id            SERIAL PRIMARY KEY,
+      block_id      INTEGER NOT NULL REFERENCES course_block(id) ON DELETE CASCADE,
+      title         VARCHAR(255) NOT NULL,
+      topic_order   INTEGER NOT NULL DEFAULT 0,
+      exam_theme_id UUID REFERENCES exam_theme(exam_theme_id) ON DELETE SET NULL,
+      theme_id      UUID REFERENCES theme(theme_id) ON DELETE SET NULL
+    );
+  `)
   await query(`
     CREATE TABLE IF NOT EXISTS exam (
-      exam_id UUID PRIMARY KEY,
-      user_id INTEGER NOT NULL,
-      exam_theme_id UUID NOT NULL REFERENCES exam_theme(exam_theme_id),
-      type VARCHAR(255) NOT NULL DEFAULT 'Итоговый экзамен',
-      question_count INTEGER NOT NULL,
-      status VARCHAR(255) NOT NULL,
-      start_exam TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      end_exam TIMESTAMPTZ NULL,
-      rate VARCHAR(255) NULL
+      exam_id         UUID PRIMARY KEY,
+      user_id         INTEGER NOT NULL,
+      exam_theme_id   UUID NOT NULL REFERENCES exam_theme(exam_theme_id),
+      type            VARCHAR(255) NOT NULL DEFAULT 'Итоговый экзамен',
+      question_count  INTEGER NOT NULL,
+      status          VARCHAR(255) NOT NULL,
+      start_exam      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      end_exam        TIMESTAMPTZ NULL,
+      rate            VARCHAR(255) NULL,
+      exam_scope      VARCHAR(20) DEFAULT 'standalone',
+      block_topic_id  INTEGER REFERENCES block_topic(id) ON DELETE SET NULL,
+      course_block_id INTEGER REFERENCES course_block(id) ON DELETE SET NULL
     );
   `)
   await query(`
@@ -89,6 +124,46 @@ test.before(async () => {
       token_hash VARCHAR(500) NOT NULL,
       expires_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `)
+
+  // Progress tables (after app_users to satisfy FK)
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_topic_progress (
+      id           SERIAL PRIMARY KEY,
+      user_id      INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      topic_id     INTEGER NOT NULL REFERENCES block_topic(id) ON DELETE CASCADE,
+      status       VARCHAR(20) NOT NULL DEFAULT 'not_started',
+      attempts     INTEGER NOT NULL DEFAULT 0,
+      best_score   NUMERIC(6,4) NOT NULL DEFAULT 0,
+      last_exam_id UUID,
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(user_id, topic_id)
+    );
+  `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_block_progress (
+      id           SERIAL PRIMARY KEY,
+      user_id      INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      block_id     INTEGER NOT NULL REFERENCES course_block(id) ON DELETE CASCADE,
+      status       VARCHAR(20) NOT NULL DEFAULT 'not_started',
+      attempts     INTEGER NOT NULL DEFAULT 0,
+      best_score   NUMERIC(6,4) NOT NULL DEFAULT 0,
+      last_exam_id UUID,
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(user_id, block_id)
+    );
+  `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_course_progress (
+      id           SERIAL PRIMARY KEY,
+      user_id      INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      status       VARCHAR(20) NOT NULL DEFAULT 'not_started',
+      attempts     INTEGER NOT NULL DEFAULT 0,
+      best_score   NUMERIC(6,4) NOT NULL DEFAULT 0,
+      last_exam_id UUID,
+      completed_at TIMESTAMPTZ,
+      UNIQUE(user_id)
     );
   `)
 

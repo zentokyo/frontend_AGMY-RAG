@@ -1,14 +1,25 @@
 import os
 import uuid
 import time
+import logging
 import requests
-import warnings
 from typing import Optional
 from dotenv import load_dotenv
 from urllib3.exceptions import InsecureRequestWarning
 
 load_dotenv()
-warnings.filterwarnings("ignore", category=InsecureRequestWarning)
+
+logger = logging.getLogger(__name__)
+
+# Конфигурируемый путь к CA-бандлу для SSL-верификации GigaChat API.
+# По умолчанию False (без верификации) — для продакшена рекомендуется
+# указать путь к сертификатам Минцифры через переменную окружения.
+GIGACHAT_CA_BUNDLE = os.getenv("GIGACHAT_CA_BUNDLE", "")
+GIGACHAT_VERIFY_SSL = GIGACHAT_CA_BUNDLE if GIGACHAT_CA_BUNDLE else False
+
+if not GIGACHAT_VERIFY_SSL:
+    import warnings
+    warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 
 
 class GigaChatAuthError(Exception):
@@ -40,15 +51,21 @@ class GigaChatAuth:
         data = {"scope": "GIGACHAT_API_PERS"}
 
         try:
-            response = requests.post(self.auth_url, headers=headers, data=data, verify=False, timeout=15)
+            response = requests.post(
+                self.auth_url, headers=headers, data=data,
+                verify=GIGACHAT_VERIFY_SSL, timeout=15,
+            )
             response.raise_for_status()
             res_data = response.json()
 
             self._access_token = res_data["access_token"]
             expires_in = res_data.get("expires_at", (time.time() + 1800) * 1000)
             self._expires_at = expires_in / 1000.0
+            logger.info("GigaChat токен успешно обновлён, истекает через %.0f сек.",
+                        self._expires_at - time.time())
             return self._access_token
-        except Exception as e:
+        except requests.RequestException as e:
+            logger.error("Ошибка получения токена GigaChat: %s", e)
             raise GigaChatAuthError(f"Ошибка API GigaChat при получении токена: {e}")
 
 

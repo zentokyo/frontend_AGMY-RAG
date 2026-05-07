@@ -14,6 +14,7 @@ import appExamsRouter from './routes/app/exams.js'
 import appAnswersRouter from './routes/app/answers.js'
 import appStatsRouter from './routes/app/stats.js'
 import appThemesRouter from './routes/app/themes.js'
+import appCourseRouter from './routes/app/course.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -45,6 +46,7 @@ export function createApp() {
   app.use('/api/app', appAnswersRouter)
   app.use('/api/app', appStatsRouter)
   app.use('/api/app', appThemesRouter)
+  app.use('/api/app', appCourseRouter)
 
   // Serve React build in production
   const publicDir = join(__dirname, '..', 'public')

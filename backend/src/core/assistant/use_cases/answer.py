@@ -1,6 +1,9 @@
 import asyncio
+import logging
 import uuid
 from datetime import datetime
+
+from langchain_chroma import Chroma
 
 from src.core.assistant.dto.answer import CreateAnswerDTO
 from src.core.assistant.entities.answer import Answer
@@ -11,15 +14,19 @@ from src.core.assistant.interfaces.repositories.exam import ExamRepository
 from src.core.assistant.interfaces.uow.answer import AnswerUnitOfWork
 from src.core.rag import GigaChatLiteLLM, answer_question
 
+logger = logging.getLogger(__name__)
+
 
 class CreateAnswerUseCase:
     def __init__(
             self,
             uow: AnswerUnitOfWork,
             model: GigaChatLiteLLM,
+            db: Chroma,
     ):
         self._uow = uow
         self._llm = model
+        self._db = db
 
     async def __call__(self, create_answer_dto: CreateAnswerDTO) -> Answer:
         async with self._uow:
@@ -33,19 +40,44 @@ class CreateAnswerUseCase:
                 exam.exam_id
             )
 
+            # Получаем название темы для фильтрации поиска в ChromaDB
+            theme_title = None
+            try:
+                theme_title = exam.theme.title if hasattr(exam.theme, 'title') else None
+            except Exception:
+                pass
+
             is_correct_answer = await asyncio.to_thread(
                 answer_question,
                 exam_question.question.text,
                 create_answer_dto.answer_text,
                 self._llm,
+                db=self._db,
+                theme_title=theme_title,
             )
 
-            print(is_correct_answer)
+            # Обработка None: если RAG не смог определить (ошибка LLM, нет контекста) —
+            # не наказываем студента, считаем ответ верным с пометкой в логе.
+            if is_correct_answer is None:
+                logger.warning(
+                    "RAG вернул None для вопроса '%s' (user_id=%d). "
+                    "Ответ помечен как верный (benefit of doubt).",
+                    exam_question.question.text[:60],
+                    create_answer_dto.user_id,
+                )
+                is_correct_answer = True
+
+            logger.info(
+                "Ответ user_id=%d на вопрос '%s': %s",
+                create_answer_dto.user_id,
+                exam_question.question.text[:60],
+                "✅ верно" if is_correct_answer else "❌ неверно",
+            )
 
             answer = Answer(
                 exam_question=exam_question,
                 answer_text=create_answer_dto.answer_text,
-                is_correct=is_correct_answer if is_correct_answer else False,
+                is_correct=is_correct_answer,
             )
 
             await self._uow.answer_repository.add_answer(answer)

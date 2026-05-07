@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from src.core.assistant.dto.exam import CreateExamDTO
@@ -6,6 +7,12 @@ from src.core.assistant.exceptions.exam import UserAlreadyTakingExamException, E
 from src.core.assistant.exceptions.exam_theme import ExamThemeNotFoundException, ExamThemeNotAllowedException
 from src.core.assistant.interfaces.repositories.exam import ExamRepository
 from src.core.assistant.interfaces.repositories.exam_theme import ExamThemeRepository
+
+logger = logging.getLogger(__name__)
+
+# Названия тем, которые считаются итоговыми экзаменами.
+# TODO: Заменить на поле is_final в ExamTheme entity + миграция БД.
+_FINAL_EXAM_TITLES = frozenset({"Итоговый экзамен"})
 
 
 class BaseExamUseCase:
@@ -40,7 +47,8 @@ class CreateExamUseCase(BaseExamUseCase):
         if exam_theme.exam_theme_order > allowed_user_order:
             raise ExamThemeNotAllowedException
 
-        exam_type = ExamType.FINAL if exam_theme.title == "Итоговый экзамен" else ExamType.NOT_FINAL  # Ужасный костыль!
+        # TODO: Заменить на exam_theme.is_final после миграции БД
+        exam_type = ExamType.FINAL if exam_theme.title in _FINAL_EXAM_TITLES else ExamType.NOT_FINAL
 
         exam = Exam(
             create_exam_dto.user_id,
@@ -50,6 +58,9 @@ class CreateExamUseCase(BaseExamUseCase):
         )
 
         await self._exam_repository.add_exam(exam)
+
+        logger.info("Создан экзамен %s для user_id=%d, тема='%s', тип=%s",
+                     exam.exam_id, create_exam_dto.user_id, exam_theme.title, exam_type.value)
 
         return exam
 

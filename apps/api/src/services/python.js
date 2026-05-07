@@ -18,9 +18,24 @@ const CHROMA_DB_PATH = resolve(
   process.env.CHROMA_DB_PATH || join(BACKEND_ROOT, 'src/core/rag/db_metadata_v5')
 )
 
+// Таймаут для Python-процессов (по умолчанию 10 минут — инжест может быть долгим)
+const PYTHON_TIMEOUT_MS = parseInt(process.env.PYTHON_TIMEOUT_MS || '600000', 10)
+
+// Ограничение одновременных Python-процессов
+const MAX_CONCURRENT = parseInt(process.env.MAX_PYTHON_CONCURRENT || '2', 10)
+let _runningCount = 0
+
 function runScript(scriptPath, args, cwd) {
   return new Promise((resolvePromise, reject) => {
-    console.log(`[python] Spawning: ${PYTHON} ${scriptPath} ${args.join(' ')}`)
+    if (_runningCount >= MAX_CONCURRENT) {
+      return reject(new Error(
+        `Too many concurrent Python processes (${_runningCount}/${MAX_CONCURRENT}). Try again later.`
+      ))
+    }
+
+    _runningCount++
+    console.log(`[python] Spawning: ${PYTHON} ${scriptPath} ${args.join(' ')} (running: ${_runningCount}/${MAX_CONCURRENT})`)
+
     const proc = spawn(PYTHON, [scriptPath, ...args], {
       cwd: cwd || process.cwd(),
       env: process.env,
@@ -28,10 +43,28 @@ function runScript(scriptPath, args, cwd) {
 
     let stdout = ''
     let stderr = ''
+    let finished = false
+
+    // Таймаут: убить процесс, если он работает слишком долго
+    const timer = setTimeout(() => {
+      if (!finished) {
+        finished = true
+        _runningCount--
+        proc.kill('SIGTERM')
+        console.error(`[python] Timeout after ${PYTHON_TIMEOUT_MS}ms: ${scriptPath}`)
+        reject(new Error(`Python script timed out after ${PYTHON_TIMEOUT_MS}ms: ${scriptPath}`))
+      }
+    }, PYTHON_TIMEOUT_MS)
+
     proc.stdout.on('data', (d) => { stdout += d.toString() })
     proc.stderr.on('data', (d) => { stderr += d.toString() })
 
     proc.on('close', (code) => {
+      if (finished) return  // уже обработали через таймаут
+      finished = true
+      _runningCount--
+      clearTimeout(timer)
+
       if (code === 0) {
         console.log(`[python] Done: ${scriptPath}\n${stdout}`)
         resolvePromise({ stdout, stderr })
@@ -42,6 +75,10 @@ function runScript(scriptPath, args, cwd) {
     })
 
     proc.on('error', (err) => {
+      if (finished) return
+      finished = true
+      _runningCount--
+      clearTimeout(timer)
       reject(new Error(`Failed to spawn python process: ${err.message}`))
     })
   })

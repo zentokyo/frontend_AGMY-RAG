@@ -5,6 +5,9 @@ import AppLayout from './components/Layout/AppLayout.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import CoursePage from './pages/CoursePage.jsx'
+import BlockPage from './pages/BlockPage.jsx'
+import TopicPage from './pages/TopicPage.jsx'
 import ExamsPage from './pages/ExamsPage.jsx'
 import ExamSessionPage from './pages/ExamSessionPage.jsx'
 import ExamResultsPage from './pages/ExamResultsPage.jsx'
@@ -48,9 +51,18 @@ export default function App() {
         )}
       >
         <Route index element={<Dashboard />} />
-        <Route path="exams" element={<ExamsPage />} />
-        <Route path="exams/:examId/results" element={<ExamResultsPage />} />
+
+        {/* Course flow */}
+        <Route path="course" element={<CoursePage />} />
+        <Route path="course/blocks/:blockId" element={<BlockPage />} />
+        <Route path="course/blocks/:blockId/topics/:topicId" element={<TopicPage />} />
+
+        {/* Exam session + results (shared between course and standalone) */}
+        <Route path="exams/:examId/result" element={<ExamResultsPage />} />
         <Route path="exams/:examId" element={<ExamSessionPage />} />
+        <Route path="exams" element={<ExamsPage />} />
+
+        {/* Legacy / standalone pages */}
         <Route path="theory" element={<TheoryPage />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="profile" element={<ProfilePage />} />

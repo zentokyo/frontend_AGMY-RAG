@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from dishka.integrations.fastapi import setup_dishka
@@ -16,7 +17,7 @@ from src.ioc import container
 def create_app() -> FastAPI:
     app = FastAPI(
         title="RAG Assistant Backend",
-        debug=True,
+        debug=os.getenv("DEBUG", "false").lower() in ("true", "1", "yes"),
         version="0.1.0",
     )
 

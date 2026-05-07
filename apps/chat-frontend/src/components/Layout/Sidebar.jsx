@@ -1,22 +1,23 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  ClipboardList,
-  BookOpen,
+  GraduationCap,
   BarChart3,
   User,
 } from 'lucide-react'
 import clsx from 'clsx'
+import useAuthStore from '../../store/authStore.js'
 
 const navItems = [
   { to: '/app', end: true, label: 'Главная', icon: LayoutDashboard },
-  { to: '/app/exams', label: 'Экзамены', icon: ClipboardList },
-  { to: '/app/theory', label: 'Теория', icon: BookOpen },
+  { to: '/app/course', label: 'Курс', icon: GraduationCap },
   { to: '/app/stats', label: 'Статистика', icon: BarChart3 },
   { to: '/app/profile', label: 'Профиль', icon: User },
 ]
 
 export default function Sidebar() {
+  const logout = useAuthStore((s) => s.logout)
+
   return (
     <aside className="flex w-56 shrink-0 flex-col bg-slate-900 text-slate-100 sm:w-60">
       <div className="flex h-16 items-center gap-3 border-b border-slate-700/50 px-5">
@@ -25,7 +26,7 @@ export default function Sidebar() {
         </div>
         <div>
           <p className="text-sm font-semibold leading-none">AGMY RAG</p>
-          <p className="mt-0.5 text-xs text-slate-400">Личный кабинет</p>
+          <p className="mt-0.5 text-xs text-slate-400">Портал обучения</p>
         </div>
       </div>
 
@@ -50,8 +51,13 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-700/50 px-5 py-3">
-        <p className="text-xs text-slate-500">Портал обучения v1.0</p>
+      <div className="border-t border-slate-700/50 px-3 py-3">
+        <button
+          onClick={logout}
+          className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+        >
+          Выйти
+        </button>
       </div>
     </aside>
   )
