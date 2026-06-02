@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<p:Page xmlns:p="http://www.evolus.vn/Namespace/Pencil">
+  <p:Properties>
+    <p:Property name="id">adminragpanel20260602</p:Property>
+    <p:Property name="name">Admin RAG Panel</p:Property>
+    <p:Property name="width">5600</p:Property>
+    <p:Property name="height">900</p:Property>
+    <p:Property name="pageFileName">page_adminragpanel20260602.xml</p:Property>
+    <p:Property name="zoom">1</p:Property>
+  </p:Properties>
+  <p:Content>
+    <svg xmlns="http://www.w3.org/2000/svg" width="5600" height="900" viewBox="0 0 5600 900">
+      <!-- Login -->
+      <rect x="80" y="80" width="1280" height="720" fill="#F1F5F9"/>
+      <text x="640" y="150" text-anchor="middle" font-size="36" font-weight="700" fill="#0F172A">AGMY RAG</text>
+      <text x="640" y="184" text-anchor="middle" font-size="18" fill="#475569">Административная панель</text>
+      <rect x="420" y="220" width="440" height="340" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="460" y="278" font-size="22" font-weight="600" fill="#0F172A">Вход в систему</text>
+      <text x="460" y="324" font-size="14" fill="#334155">Email</text>
+      <rect x="460" y="328" width="360" height="46" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="474" y="356" font-size="14" fill="#94A3B8">admin@example.com</text>
+      <text x="460" y="408" font-size="14" fill="#334155">Пароль</text>
+      <rect x="460" y="412" width="360" height="46" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="474" y="440" font-size="14" fill="#94A3B8">••••••••</text>
+      <rect x="460" y="482" width="360" height="48" rx="10" fill="#2563EB"/>
+      <text x="640" y="512" text-anchor="middle" font-size="15" font-weight="600" fill="#FFFFFF">Войти</text>
+
+      <!-- Dashboard -->
+      <rect x="1460" y="80" width="1280" height="720" fill="#F8FAFC"/>
+      <rect x="1460" y="80" width="240" height="720" fill="#0F172A"/>
+      <text x="1492" y="122" font-size="20" font-weight="700" fill="#FFFFFF">AGMY RAG</text>
+      <rect x="1476" y="180" width="208" height="40" rx="8" fill="#2563EB"/>
+      <text x="1496" y="206" font-size="14" font-weight="600" fill="#FFFFFF">Дашборд</text>
+      <text x="1496" y="246" font-size="14" fill="#94A3B8">База знаний</text>
+      <text x="1496" y="278" font-size="14" fill="#94A3B8">База вопросов</text>
+      <rect x="1700" y="80" width="1040" height="72" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="2450" y="124" font-size="13" fill="#475569">admin@example.com   admin</text>
+      <text x="1740" y="184" font-size="26" font-weight="700" fill="#0F172A">Дашборд</text>
+      <text x="1740" y="212" font-size="14" fill="#64748B">Обзор состояния системы RAG</text>
+      <rect x="1740" y="260" width="220" height="120" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="1760" y="286" font-size="13" fill="#64748B">Тем в базе знаний</text>
+      <text x="1760" y="326" font-size="30" font-weight="700" fill="#0F172A">12</text>
+      <rect x="1980" y="260" width="220" height="120" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="2000" y="286" font-size="13" fill="#64748B">Файлов всего</text>
+      <text x="2000" y="326" font-size="30" font-weight="700" fill="#0F172A">148</text>
+      <rect x="2220" y="260" width="220" height="120" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="2240" y="286" font-size="13" fill="#64748B">Вопросов Q&amp;A</text>
+      <text x="2240" y="326" font-size="30" font-weight="700" fill="#0F172A">312</text>
+      <rect x="1740" y="408" width="940" height="340" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="1760" y="432" font-size="14" font-weight="600" fill="#334155">Последние загрузки</text>
+      <text x="1760" y="470" font-size="13" fill="#475569">Гражданское право | 8 файлов | Тема #3</text>
+      <text x="1760" y="500" font-size="13" fill="#475569">Конституционное право | 5 файлов | Тема #4</text>
+
+      <!-- Knowledge base -->
+      <rect x="2840" y="80" width="1280" height="720" fill="#F8FAFC"/>
+      <rect x="2840" y="80" width="240" height="720" fill="#0F172A"/>
+      <rect x="2856" y="232" width="208" height="40" rx="8" fill="#2563EB"/>
+      <text x="2876" y="258" font-size="14" font-weight="600" fill="#FFFFFF">База знаний</text>
+      <text x="3120" y="184" font-size="26" font-weight="700" fill="#0F172A">База знаний</text>
+      <text x="3120" y="212" font-size="14" fill="#64748B">12 тем • 148 файлов</text>
+      <rect x="3850" y="178" width="100" height="38" rx="8" fill="#E2E8F0"/>
+      <text x="3872" y="203" font-size="13" fill="#334155">Обновить</text>
+      <rect x="3962" y="178" width="130" height="38" rx="8" fill="#2563EB"/>
+      <text x="3988" y="203" font-size="13" font-weight="600" fill="#FFFFFF">Добавить тему</text>
+      <rect x="3120" y="256" width="972" height="112" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="3148" y="296" font-size="18" font-weight="600" fill="#1E293B">Гражданское право</text>
+      <text x="3148" y="322" font-size="13" fill="#64748B">8 файлов • Тема #3</text>
+      <text x="3796" y="300" font-size="13" fill="#2563EB">Добавить файлы    Удалить</text>
+
+      <!-- Questions -->
+      <rect x="4220" y="80" width="1280" height="720" fill="#F8FAFC"/>
+      <rect x="4220" y="80" width="240" height="720" fill="#0F172A"/>
+      <rect x="4236" y="268" width="208" height="40" rx="8" fill="#2563EB"/>
+      <text x="4256" y="294" font-size="14" font-weight="600" fill="#FFFFFF">База вопросов</text>
+      <text x="4500" y="184" font-size="26" font-weight="700" fill="#0F172A">База вопросов</text>
+      <text x="4500" y="212" font-size="14" fill="#64748B">312 вопросов</text>
+      <rect x="5318" y="178" width="154" height="38" rx="8" fill="#2563EB"/>
+      <text x="5342" y="203" font-size="13" font-weight="600" fill="#FFFFFF">Добавить вопрос</text>
+      <rect x="4500" y="254" width="300" height="40" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="4516" y="280" font-size="13" fill="#94A3B8">Поиск по тексту...</text>
+      <rect x="4814" y="254" width="220" height="40" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="4830" y="280" font-size="13" fill="#475569">Все темы</text>
+      <rect x="4500" y="312" width="972" height="420" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="4524" y="342" font-size="13" font-weight="600" fill="#334155">Вопрос               Ответ               Тема          Действия</text>
+      <text x="4524" y="374" font-size="12" fill="#475569">Что такое правоспособность?   Способность иметь права...   Гражд. право   Просмотр</text>
+    </svg>
+  </p:Content>
+</p:Page>

@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import { getMe, loginUser, logoutUser, registerUser, refreshAppToken } from '../api/appAuth.js'
 
+/** Single-flight: React Strict Mode runs effects twice; parallel /auth/refresh can revoke the rotated cookie. */
+let checkAuthFlight = null
+
 const useAuthStore = create((set) => ({
   user: null,
   accessToken: null,
@@ -31,18 +34,28 @@ const useAuthStore = create((set) => ({
   },
 
   checkAuth: async () => {
-    try {
-      const refreshed = await refreshAppToken()
-      const me = await getMe()
-      set({
-        accessToken: refreshed.accessToken,
-        user: me.user,
-        isAuthenticated: true,
-        isLoading: false,
-      })
-    } catch {
-      set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false })
-    }
+    if (checkAuthFlight) return checkAuthFlight
+
+    checkAuthFlight = (async () => {
+      try {
+        const refreshed = await refreshAppToken()
+        // Put token in memory before /me — axios interceptor reads the store only.
+        set({ accessToken: refreshed.accessToken })
+        const me = await getMe()
+        set({
+          accessToken: refreshed.accessToken,
+          user: me.user,
+          isAuthenticated: true,
+          isLoading: false,
+        })
+      } catch {
+        set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false })
+      } finally {
+        checkAuthFlight = null
+      }
+    })()
+
+    return checkAuthFlight
   },
 
   logout: async () => {

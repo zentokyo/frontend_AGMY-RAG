@@ -98,3 +98,13 @@ export async function deleteFromChroma(storedFilename) {
     '--db-path', CHROMA_DB_PATH,
   ])
 }
+
+/** Run ingest into Qdrant (replaces ChromaDB). */
+const INGEST_QDRANT_SCRIPT = resolve(
+  process.env.INGEST_QDRANT_SCRIPT_PATH || join(BACKEND_ROOT, 'src/core/rag/ingest_qdrant.py')
+)
+
+export async function runIngestQdrant(incremental = false) {
+  const args = incremental ? ['--incremental'] : []
+  return runScript(INGEST_QDRANT_SCRIPT, args, BACKEND_ROOT)
+}

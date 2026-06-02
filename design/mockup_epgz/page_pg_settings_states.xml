@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<p:Page xmlns:p="http://www.evolus.vn/Namespace/Pencil">
+  <p:Properties>
+    <p:Property name="id">pg_settings_states</p:Property>
+    <p:Property name="name">06 Settings and States</p:Property>
+    <p:Property name="width">1440</p:Property>
+    <p:Property name="height">900</p:Property>
+    <p:Property name="pageFileName">page_pg_settings_states.xml</p:Property>
+    <p:Property name="zoom">1</p:Property>
+  </p:Properties>
+  <p:Content>
+    <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+      <rect x="0" y="0" width="1440" height="900" fill="#F8FAFC"/>
+      <rect x="0" y="0" width="240" height="900" fill="#0F172A"/>
+      <text x="28" y="138" font-size="14" fill="#94A3B8">Дашборд</text>
+      <text x="28" y="178" font-size="14" fill="#94A3B8">База знаний</text>
+      <text x="28" y="218" font-size="14" fill="#94A3B8">База вопросов</text>
+      <rect x="240" y="0" width="1200" height="64" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="280" y="110" font-size="30" font-weight="700" fill="#0F172A">Настройки (derived screen)</text>
+      <text x="280" y="138" font-size="14" fill="#64748B">Стиль полностью унаследован из admin-frontend</text>
+
+      <rect x="280" y="172" width="560" height="248" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="308" y="206" font-size="16" font-weight="600" fill="#334155">Профиль администратора</text>
+      <text x="308" y="244" font-size="14" fill="#334155">Email</text>
+      <rect x="308" y="256" width="504" height="42" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="324" y="282" font-size="13" fill="#475569">admin@example.com</text>
+      <text x="308" y="326" font-size="14" fill="#334155">Роль</text>
+      <rect x="308" y="338" width="220" height="42" rx="8" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="324" y="364" font-size="13" fill="#475569">admin</text>
+      <rect x="666" y="338" width="146" height="42" rx="8" fill="#2563EB"/>
+      <text x="698" y="364" font-size="13" font-weight="600" fill="#FFFFFF">Сохранить</text>
+
+      <rect x="860" y="172" width="548" height="248" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="888" y="206" font-size="16" font-weight="600" fill="#334155">Системные состояния</text>
+      <rect x="888" y="228" width="492" height="56" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+      <text x="908" y="261" font-size="13" fill="#475569">Loading: spinner + текст "Загрузка..."</text>
+      <rect x="888" y="294" width="492" height="56" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+      <text x="908" y="327" font-size="13" fill="#475569">Empty: "Нет данных" / "База знаний пуста"</text>
+      <rect x="888" y="360" width="492" height="56" rx="8" fill="#F8FAFC" stroke="#E2E8F0"/>
+      <text x="908" y="393" font-size="13" fill="#475569">Error: toast.error с текстом API ошибки</text>
+
+      <rect x="280" y="448" width="1128" height="184" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="308" y="480" font-size="16" font-weight="600" fill="#334155">Toast placeholders</text>
+      <rect x="308" y="502" width="300" height="44" rx="10" fill="#111827"/>
+      <text x="324" y="529" font-size="13" fill="#FFFFFF">toast.success: Вопрос создан</text>
+      <rect x="620" y="502" width="300" height="44" rx="10" fill="#111827"/>
+      <text x="636" y="529" font-size="13" fill="#FFFFFF">toast.error: Ошибка загрузки</text>
+      <rect x="932" y="502" width="300" height="44" rx="10" fill="#111827"/>
+      <text x="948" y="529" font-size="13" fill="#FFFFFF">toast.success: Вы вышли из системы</text>
+
+      <rect x="280" y="656" width="1128" height="210" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="308" y="690" font-size="16" font-weight="600" fill="#334155">Design tokens extracted from admin-frontend</text>
+      <text x="308" y="720" font-size="13" fill="#475569">Colors: blue-600 #2563EB, slate-900 #0F172A, slate-50 #F8FAFC, red-600 #DC2626</text>
+      <text x="308" y="746" font-size="13" fill="#475569">Typography: 11-42 px, mostly medium/semibold headings and 13-14 px body</text>
+      <text x="308" y="772" font-size="13" fill="#475569">Radius: 8 / 10 / 12 / 14 px, cards use subtle border and shadow-sm</text>
+      <text x="308" y="798" font-size="13" fill="#475569">Spacing: layouts use 16/24/32 step rhythm and generous table paddings</text>
+    </svg>
+  </p:Content>
+</p:Page>

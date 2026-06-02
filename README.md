@@ -1,133 +1,280 @@
 # AGMY RAG — монорепозиторий
 
-Единый проект: **ассистент на FastAPI**, **Telegram-бот**, **админ-панель** (React + Node.js), общая **PostgreSQL** и **MinIO**, утилиты **RAG/Chroma** в каталоге `backend/`.
+Проект состоит из нескольких частей, которые можно запускать отдельно:
+
+- **контейнеры инфраструктуры**: PostgreSQL, MinIO, Qdrant;
+- **Node.js API**: auth, документы, вопросы, курс, экзамены, RAG-оценка;
+- **веб-админка**: React + Vite, порт `5173`;
+- **веб-чат / личный кабинет**: React + Vite, порт `5174`;
+- **Python FastAPI backend**: legacy-сервис ассистента, порт `8000`;
+- **RAG-утилиты**: индексация базы знаний и интеграции с Qdrant/LLM.
+
+> Важно: старый каталог `bot/` в активном дереве проекта отсутствует. Поэтому не используйте голую команду `docker compose up -d --build` для запуска всех сервисов сразу, пока сервис `assistant_bot` не будет удалён из `docker-compose.yml` или каталог `bot/` не будет восстановлен. Ниже команды запускают только актуальные сервисы.
 
 ## Структура
 
 | Каталог | Назначение |
 |--------|------------|
-| `backend/` | FastAPI, доменная логика, Alembic-миграции, RAG (`src/core/rag/`), при необходимости файлы в `knowledge_base/` |
-| `bot/` | Telegram-бот (`python-telegram-bot`), обращается к `EXAM_API_BASE_URL` |
+| `apps/api/` | Основной Node.js API: auth, документы, вопросы, `/api/app/*`, курс, RAG |
 | `apps/admin-frontend/` | Админ-панель: React 19, Vite, Tailwind |
-| `apps/chat-frontend/` | Основной веб-чат/кабинет: React 19, Vite, Tailwind |
-| `apps/api/` | Основной Node.js API: auth, документы, вопросы, миграция на `/api/app/*` |
-| `python/` | `admin_tools.py` — обслуживание Chroma (используется при расширении админ API) |
-| `converters/` | Вспомогательные конвертеры из исходного проекта |
-| `theme_files/` | Стартовые PDF для загрузки в MinIO (сервис `create-buckets`) |
+| `apps/chat-frontend/` | Веб-чат / личный кабинет студента: React 19, Vite, Tailwind |
+| `backend/` | Legacy FastAPI, Alembic, доменная логика, RAG-утилиты |
+| `backend/knowledge_base/` | База знаний для RAG |
+| `python/` | `admin_tools.py` и вспомогательные Python-утилиты для админ API |
+| `converters/` | Вспомогательные конвертеры и перенесённые исходники старого бота |
+| `theme_files/` | Стартовые PDF для загрузки в MinIO |
 | `dump.sql` | Дамп начальных данных БД `assistant` |
 
 Подробнее по Python-бэкенду см. `backend/readme.md`.
 
----
+## Требования
 
-## Быстрый старт (Docker — всё сразу)
+- Node.js 20+ и npm.
+- Docker Desktop / OrbStack / Colima с рабочим `docker compose`, если запускаете контейнеры.
+- PostgreSQL, MinIO и Qdrant: через Docker или уже поднятые локально.
+- Python 3.12 для локального запуска legacy FastAPI/RAG-утилит.
 
-1. **Переменные окружения**
+## Переменные окружения
 
-   ```bash
-   cp .env.example .env
-   ```
-
-   Заполните как минимум `GIGACHAT_AUTHORIZATION_KEY`, `BOT_TOKEN`. Остальное можно оставить как в примере для локальной разработки.
-
-2. **Запуск контейнеров**
-
-   ```bash
-   docker compose up -d --build
-   ```
-
-   Поднимутся: `assistant_db` (Postgres), `assistant-file-storage` (MinIO), `assistant_backend` (FastAPI, порт **8000**), `assistant_bot`, `create-buckets`, `admin-server` (API + собранная админка, порт **3001**).
-
-3. **Импорт дампа БД** (первый раз или после чистого volume):
-
-   ```bash
-   docker exec -i assistant_db psql -U postgres -d assistant < ./dump.sql
-   ```
-
-   На Windows при необходимости:
-
-   ```bat
-   docker exec -i assistant_db psql -U postgres -d assistant < dump.sql
-   ```
-
-4. **Миграции и таблицы админки** (`admin_users`, refresh-токены):
-
-   ```bash
-   docker compose exec admin-server node src/db/migrate.js
-   docker compose exec admin-server node src/db/seed.js
-   ```
-
-5. **Открыть в браузере**
-
-   - Админ-панель: [http://localhost:3001](http://localhost:3001) (логин из `SEED_ADMIN_*` в `.env`).
-   - API ассистента: [http://localhost:8000/docs](http://localhost:8000/docs) (если включён OpenAPI).
-
-**Опционально — дев-сервер Vite (горячая перезагрузка фронта):**
+Создайте корневой `.env`:
 
 ```bash
-docker compose --profile dev up -d --build
+cp .env.example .env
 ```
 
-Фронты: [http://localhost:5173](http://localhost:5173) (admin) и [http://localhost:5174](http://localhost:5174) (chat), прокси на API настроены в `apps/admin-frontend/vite.config.js` и `apps/chat-frontend/vite.config.js`.
+Проверьте минимум:
 
----
+- `POSTGRES_*` — доступ к базе `assistant`;
+- `S3_*` — MinIO / S3;
+- `QDRANT_URL` и `QDRANT_COLLECTION` — векторная БД;
+- `DEEPSEEK_API_KEY` — LLM для RAG-оценки ответов;
+- `GIGACHAT_AUTHORIZATION_KEY` — эмбеддинги RAG;
+- `JWT_SECRET` и `JWT_REFRESH_SECRET` — секреты Node API;
+- `CLIENT_ORIGIN` — должен включать `http://localhost:5173` и `http://localhost:5174` для dev-фронтов.
 
-## Локальная разработка без Docker (только админка + свой Postgres)
+`apps/api/src/env.js` сначала читает корневой `.env`, затем `apps/api/.env`. Значения из `apps/api/.env` перекрывают корневые, поэтому для локальной разработки удобно держать там:
 
-1. Поднимите Postgres и MinIO (или возьмите уже запущенные из `docker compose up assistant_db assistant-file-storage`).
-2. `cp .env.example .env` в **корне** и при необходимости создайте `apps/api/.env` с `DB_HOST=localhost` и паролями.
-3. Установка и запуск:
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=assistant
+DB_USER=postgres
+DB_PASSWORD=example
+CLIENT_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:3001
+```
 
-   ```bash
-   npm run install:all
-   npm run db:migrate
-   npm run db:seed
-   npm run dev
-   ```
+На macOS порт `7000` часто занят AirPlay/AirTunes. Если MinIO не стартует, поменяйте в `.env` `S3_PORT`, например:
 
-   Будут: API [http://localhost:3001](http://localhost:3001), admin [http://localhost:5173](http://localhost:5173), chat [http://localhost:5174](http://localhost:5174).
+```env
+S3_PORT=9000
+S3_ENDPOINT=http://localhost:9000
+```
 
-4. Бэкенд FastAPI и бота при этом запускайте отдельно из `backend/` и `bot/` по их `readme`/Dockerfile при необходимости.
+## 1. Контейнеры инфраструктуры
 
----
+Запуск только базовых контейнеров:
 
-## Миграции Python-бэкенда (Alembic)
+```bash
+docker compose up -d assistant-vector-db assistant_db assistant-file-storage create-buckets
+```
 
-Из каталога `backend/` с установленными зависимостями и настроенным `.env` (см. `backend/.env.example`):
+Проверка:
+
+```bash
+docker compose ps
+curl http://localhost:6333/healthz
+curl http://localhost:${S3_PORT:-7000}/minio/health/live
+```
+
+Первичная загрузка дампа БД, если volume пустой:
+
+```bash
+docker exec -i assistant_db psql -U postgres -d assistant < ./dump.sql
+```
+
+Миграции и seed для Node API выполняйте после установки npm-зависимостей из следующего раздела:
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+## 2. Node.js API
+
+Установка зависимостей:
+
+```bash
+npm run install:all
+```
+
+Локальный dev-запуск API:
+
+```bash
+npm run dev:api
+```
+
+API будет доступен на [http://localhost:3001](http://localhost:3001).
+
+Быстрая проверка:
+
+```bash
+curl -i http://localhost:3001/api/auth/me
+```
+
+Без токена корректный ответ — `401` с `Missing token`.
+
+## 3. Веб-админка
+
+Админка в dev-режиме запускается отдельно от API:
+
+```bash
+npm run dev:admin
+```
+
+Откройте [http://localhost:5173](http://localhost:5173).
+
+Vite проксирует запросы `/api` на `http://localhost:3001`, поэтому перед работой с админкой должен быть запущен Node API.
+
+Production-сборка админки:
+
+```bash
+npm run build
+```
+
+Сборка кладётся в `apps/api/public` и может отдаваться Express-сервером на `http://localhost:3001`.
+
+## 4. Веб-чат / личный кабинет
+
+Чат в dev-режиме:
+
+```bash
+npm run dev:chat
+```
+
+Откройте [http://localhost:5174](http://localhost:5174).
+
+Как и админка, чат проксирует `/api` на `http://localhost:3001`; Node API должен быть запущен заранее.
+
+Production-сборка чата:
+
+```bash
+npm run build:chat
+```
+
+## 5. Всё веб-приложение локально
+
+Если инфраструктура уже поднята, можно одновременно запустить API, админку и чат:
+
+```bash
+npm run dev
+```
+
+Будут доступны:
+
+- API: [http://localhost:3001](http://localhost:3001)
+- Admin: [http://localhost:5173](http://localhost:5173)
+- Chat: [http://localhost:5174](http://localhost:5174)
+
+## 6. Docker-запуск API + собранной админки
+
+Если нужна контейнерная версия Node API со статикой админки, запускайте сервисы явно:
+
+```bash
+docker compose up -d --build assistant-vector-db assistant_db assistant-file-storage create-buckets assistant_backend admin-server
+```
+
+Откройте [http://localhost:3001](http://localhost:3001).
+
+Эта команда не запускает `assistant_bot` и не поднимает dev-сервер чата. Чат для разработки запускайте отдельно через `npm run dev:chat`.
+
+## 7. Docker dev-фронты
+
+Если хотите поднять Vite-фронты тоже в Docker, запускайте профиль `dev` с явным списком сервисов:
+
+```bash
+docker compose --profile dev up -d --build assistant-vector-db assistant_db assistant-file-storage create-buckets assistant_backend admin-server admin-client-dev chat-client-dev
+```
+
+После запуска:
+
+- Admin: [http://localhost:5173](http://localhost:5173)
+- Chat: [http://localhost:5174](http://localhost:5174)
+- API: [http://localhost:3001](http://localhost:3001)
+
+## 8. Python FastAPI backend
+
+Локальный запуск legacy FastAPI:
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn --factory src.main:create_app --host 0.0.0.0 --port 8000
+```
+
+Документация FastAPI: [http://localhost:8000/docs](http://localhost:8000/docs).
+
+Миграции Python-бэкенда:
 
 ```bash
 cd backend
 alembic upgrade head
 ```
 
-База должна совпадать с той, что использует Node-админка (`assistant`).
+База должна совпадать с той, что использует Node API (`assistant`).
 
----
+## Проверки
 
-## Полезные переменные
+Сборки:
 
-| Назначение | Файл / ключи |
-|------------|----------------|
-| Docker Compose | Корневой `.env` (шаблон — `.env.example`) |
-| Node загружает | сначала корневой `.env`, затем `apps/api/.env` (перекрывает) |
-| JWT, CORS, S3 для админки | `JWT_*`, `CLIENT_ORIGIN`, `S3_*`, `STORAGE_TYPE` |
-| Telegram / FastAPI | `BOT_TOKEN`, `EXAM_API_BASE_URL`, `POSTGRES_*`, `S3_*`, `GIGACHAT_AUTHORIZATION_KEY` |
+```bash
+npm run build
+npm run build:chat
+```
 
-Пути к `ingest.py` и Chroma для админ-сервера в Docker заданы в `docker-compose.yml` (`BACKEND_ROOT`, `INGEST_*`). Вызов Python из образа `node:alpine` для полного пайплайна RAG может требовать установленного Python на хосте или доработки образа — при необходимости запускайте индексацию из окружения `backend/`.
+API-тесты:
 
----
+```bash
+npm run test:api
+```
 
-## Сборка production-образа админки (только Node + статика)
+E2E пользовательского кабинета:
 
-Корневой `Dockerfile` собирает `apps/admin-frontend` в `apps/api/public` и запускает Express из `apps/api`. Используется сервисом `admin-server` в Compose.
+```bash
+npm run test:e2e
+```
 
----
+Полный быстрый набор без e2e:
 
-## Стек (кратко)
+```bash
+npm run test:all
+```
+
+## Частые проблемы
+
+**Docker не стартует / нет socket**
+
+Запустите Docker Desktop, OrbStack или Colima и повторите `docker compose ps`.
+
+**`docker compose up -d --build` падает на `./bot`**
+
+Это ожидаемо для текущего дерева: активного каталога `bot/` нет. Используйте команды из этого README с явным списком сервисов или удалите/восстановите сервис `assistant_bot`.
+
+**MinIO не стартует на `7000`**
+
+На macOS порт может быть занят AirPlay/AirTunes. Поменяйте `S3_PORT` в `.env`, например на `9000`, и обновите локальный `S3_ENDPOINT`.
+
+**RAG падает в fallback**
+
+Проверьте, что запущен Qdrant, заполнена коллекция `QDRANT_COLLECTION`, указаны `DEEPSEEK_API_KEY` и `GIGACHAT_AUTHORIZATION_KEY`.
+
+## Стек
 
 | Слой | Технологии |
 |------|------------|
-| Ассистент | Python 3.12, FastAPI, asyncpg, MinIO, GigaChat |
-| Бот | python-telegram-bot, aiohttp |
-| Админка | React 19, Vite, Tailwind, Zustand, TanStack Query, axios |
-| Админ API | Node 20, Express, PostgreSQL, JWT + httpOnly refresh |
+| API | Node 20, Express, PostgreSQL, JWT, S3/MinIO, Qdrant |
+| Admin | React 19, Vite, Tailwind, Zustand, TanStack Query, axios |
+| Chat | React 19, Vite, Tailwind, Zustand, TanStack Query, axios |
+| Legacy backend | Python 3.12, FastAPI, asyncpg, MinIO |
+| RAG | Qdrant, GigaChat embeddings, DeepSeek |

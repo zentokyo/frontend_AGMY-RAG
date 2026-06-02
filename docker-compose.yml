@@ -3,6 +3,25 @@
 
 services:
 
+  # ── Vector Database (Qdrant) ──────────────────────────────────────────────
+  assistant-vector-db:
+    container_name: assistant-vector-db
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - '6333:6333'
+      - '6334:6334'
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:6333/healthz']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
   assistant_db:
     container_name: assistant_db
     image: postgres:17-alpine
@@ -24,6 +43,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── MinIO (S3-совместимое хранилище) ─────────────────────────────────────
   assistant-file-storage:
     container_name: assistant-file-storage
     image: minio/minio:latest
@@ -40,6 +60,7 @@ services:
       - minio_data:/data
     entrypoint: minio server /data
 
+  # ── Инициализация MinIO (бакеты + файлы) ─────────────────────────────────
   create-buckets:
     container_name: create-buckets
     image: minio/mc
@@ -56,6 +77,7 @@ services:
       exit 0;
       "
 
+  # ── Python FastAPI (устаревает, будет удалён) ─────────────────────────────
   assistant_backend:
     container_name: assistant_backend
     build:
@@ -73,6 +95,7 @@ services:
     ports:
       - '8000:8000'
 
+  # ── Telegram-бот (устаревает, будет удалён) ───────────────────────────────
   assistant_bot:
     container_name: assistant_bot
     build:
@@ -85,7 +108,7 @@ services:
     depends_on:
       - assistant_backend
 
-  # Админ-панель: API + собранный React (см. Dockerfile в корне)
+  # ── Админ-панель: API + собранный React ──────────────────────────────────
   admin-server:
     container_name: agmy_admin_server
     build:
@@ -110,10 +133,13 @@ services:
       KB_PATH: /backend/knowledge_base
       CHROMA_DB_PATH: /backend/src/core/rag/db_metadata_v5
       ADMIN_TOOLS_PATH: /admin_tools/admin_tools.py
+      QDRANT_URL: http://assistant-vector-db:6333
     ports:
       - '3001:3001'
     depends_on:
       assistant_db:
+        condition: service_healthy
+      assistant-vector-db:
         condition: service_healthy
       assistant_backend:
         condition: service_started
@@ -123,7 +149,7 @@ services:
       - ./python:/admin_tools:ro
       - ./backend:/backend:rw
 
-  # Локальная разработка фронта админки (опционально)
+  # ── Локальная разработка фронта админки (опционально) ────────────────────
   admin-client-dev:
     profiles: ['dev']
     build:
@@ -140,7 +166,7 @@ services:
     depends_on:
       - admin-server
 
-  # Локальная разработка фронта веб-чата (опционально)
+  # ── Локальная разработка фронта веб-чата (опционально) ───────────────────
   chat-client-dev:
     profiles: ['dev']
     build:
@@ -160,3 +186,4 @@ services:
 volumes:
   minio_data:
   assistant_pgdata:
+  qdrant_storage:

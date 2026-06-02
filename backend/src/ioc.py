@@ -43,7 +43,7 @@ from src.core.commons.interfaces.storages.s3 import S3Storage
 from src.core.commons.storages.s3 import MinioS3Storage
 from src.core.commons.uow.base import UnitOfWork
 from src.core.commons.uow.sql import SQLAlchemyUnitOfWork
-from src.core.rag import GigaChatLiteLLM, GigaChatEmbeddings, CHROMA_PATH
+from src.core.rag import DeepSeekFlashLLM, GigaChatEmbeddings, CHROMA_PATH
 
 
 class SQLAlchemyProvider(Provider):
@@ -109,8 +109,8 @@ class SQLAlchemyUnitOfWorkProvider(Provider):
 class AssistantProvider(Provider):
     scope = Scope.REQUEST
 
-    # LLM — синглтон на уровне приложения (токен обновляется автоматически внутри)
-    model = provide(GigaChatLiteLLM, scope=Scope.APP)
+    # LLM — синглтон на уровне приложения (DeepSeek V4 Flash)
+    model = provide(DeepSeekFlashLLM, scope=Scope.APP)
 
     # Embeddings — синглтон на уровне приложения
     embeddings = provide(GigaChatEmbeddings, scope=Scope.APP)

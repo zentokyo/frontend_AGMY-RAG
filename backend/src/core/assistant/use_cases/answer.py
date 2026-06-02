@@ -12,7 +12,7 @@ from src.core.assistant.entities.exam_question import ExamQuestionStatus
 from src.core.assistant.interfaces.repositories.answer import AnswerRepository
 from src.core.assistant.interfaces.repositories.exam import ExamRepository
 from src.core.assistant.interfaces.uow.answer import AnswerUnitOfWork
-from src.core.rag import GigaChatLiteLLM, answer_question
+from src.core.rag import DeepSeekFlashLLM, answer_question
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class CreateAnswerUseCase:
     def __init__(
             self,
             uow: AnswerUnitOfWork,
-            model: GigaChatLiteLLM,
+            model: DeepSeekFlashLLM,
             db: Chroma,
     ):
         self._uow = uow

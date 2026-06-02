@@ -1,10 +1,9 @@
 import logging
 import re
 import json
-import requests
 from langchain_chroma import Chroma
+from src.core.rag.deepseek_llm import DeepSeekFlashLLM
 from src.core.rag.ingest import GigaChatEmbeddings
-from src.core.rag.gigachat_auth import get_gigachat_token, GigaChatAuthError, GIGACHAT_VERIFY_SSL
 
 logger = logging.getLogger(__name__)
 
@@ -19,47 +18,22 @@ MAX_CONTEXT_CHARS = 3000
 
 # -------------------- Класс для GigaChat Lite --------------------
 class GigaChatLiteLLM:
-    """Обёртка для GigaChat API.
+    """Псевдоним для DeepSeekFlashLLM (обратная совместимость).
 
-    Токен обновляется автоматически на каждый запрос через get_gigachat_token(),
-    что обеспечивает корректную работу при длительном uptime сервера.
+    Используется в use_cases/answer.py и ioc.py — при переходе с GigaChat на DeepSeek.
+    После полной замены будет удалён.
     """
 
     def __init__(self):
-        self.api_url = "https://gigachat.devices.sberbank.ru/api/v1/chat/completions"
-
-    def _get_headers(self) -> dict:
-        """Заголовки с актуальным токеном (обновляется автоматически)."""
-        return {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {get_gigachat_token()}"
-        }
+        self._impl = DeepSeekFlashLLM()
 
     def invoke(self, prompt: str, max_tokens: int = 256) -> str:
-        """Отправить промпт в GigaChat и получить текстовый ответ."""
-        payload = {
-            "model": "GigaChat",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.0,
-            "max_tokens": max_tokens
-        }
-        try:
-            response = requests.post(
-                self.api_url, headers=self._get_headers(),
-                json=payload, verify=GIGACHAT_VERIFY_SSL, timeout=30,
-            )
-            if response.status_code != 200:
-                logger.error("GigaChat LLM error %d: %s", response.status_code, response.text)
-                raise RuntimeError(f"[GigaChat Error] {response.status_code}: {response.text}")
-            return response.json()["choices"][0]["message"]["content"].strip()
-        except requests.RequestException as e:
-            logger.error("GigaChat LLM request failed: %s", e)
-            raise RuntimeError(f"[GigaChat Network Error] {e}") from e
+        return self._impl.invoke(prompt, max_tokens=max_tokens)
 
 
 # -------------------- Функции валидации и обработки --------------------
 
-def is_substantive_answer(question: str, user_answer: str, llm: GigaChatLiteLLM) -> dict:
+def is_substantive_answer(question: str, user_answer: str, llm: DeepSeekFlashLLM) -> dict:
     """Проверяет, является ли ответ пользователя содержательным (не мета-комментарий, не пустой)."""
     txt = (user_answer or "").strip()
     low = txt.lower()
@@ -119,7 +93,7 @@ def is_substantive_answer(question: str, user_answer: str, llm: GigaChatLiteLLM)
     return {"ok": is_answer, "label": label_text, "reason": explanation}
 
 
-def extract_assertions(text: str, llm: GigaChatLiteLLM) -> list[str]:
+def extract_assertions(text: str, llm: DeepSeekFlashLLM) -> list[str]:
     """Разбивает ответ пользователя на отдельные утверждения (факты)."""
     prompt = f"Разбей текст на отдельные факты (по одному на строку):\n{text}"
     try:
@@ -130,7 +104,7 @@ def extract_assertions(text: str, llm: GigaChatLiteLLM) -> list[str]:
         return [text]
 
 
-def decompose_question(question: str, llm: GigaChatLiteLLM) -> list[str]:
+def decompose_question(question: str, llm: DeepSeekFlashLLM) -> list[str]:
     """Разбивает сложный вопрос на 1-3 простых подвопроса для multi-query поиска."""
     prompt = f"Разбей сложный вопрос на 1-3 простых подвопроса:\n{question}"
     try:
@@ -141,7 +115,7 @@ def decompose_question(question: str, llm: GigaChatLiteLLM) -> list[str]:
         return [question]
 
 
-def rerank_chunks(question: str, chunks: list, llm: GigaChatLiteLLM, top_k: int = 5) -> list:
+def rerank_chunks(question: str, chunks: list, llm: DeepSeekFlashLLM, top_k: int = 5) -> list:
     """Реранжирование чанков по релевантности вопросу.
 
     Для каждого чанка запрашиваем у LLM оценку релевантности.
@@ -165,7 +139,7 @@ def rerank_chunks(question: str, chunks: list, llm: GigaChatLiteLLM, top_k: int 
 def answer_question(
         question: str,
         answer: str,
-        model: GigaChatLiteLLM,
+        model: DeepSeekFlashLLM,
         db: Chroma | None = None,
         theme_title: str | None = None,
         use_assertion_splitting: bool = False,
@@ -179,7 +153,7 @@ def answer_question(
     Args:
         question: Текст вопроса экзамена.
         answer: Текст ответа студента.
-        model: Экземпляр GigaChatLiteLLM для вызовов LLM.
+        model: Экземпляр DeepSeekFlashLLM для вызовов LLM.
         db: Экземпляр Chroma (если None — создаётся локально, для обратной совместимости).
         theme_title: Название темы для фильтрации поиска (опционально).
         use_assertion_splitting: Разбивать ли ответ на отдельные утверждения.

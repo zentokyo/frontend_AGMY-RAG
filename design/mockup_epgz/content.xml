@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<p:Document xmlns:p="http://www.evolus.vn/Namespace/Pencil">
+  <p:Properties>
+    <p:Property name="id">adminfrontendmockup20260602</p:Property>
+    <p:Property name="name">Admin Frontend Mockup</p:Property>
+  </p:Properties>
+  <p:Pages>
+    <p:Page>
+      <p:Properties>
+        <p:Property name="id">pg_login</p:Property>
+        <p:Property name="name">01 Login</p:Property>
+        <p:Property name="width">1440</p:Property>
+        <p:Property name="height">900</p:Property>
+        <p:Property name="pageFileName">page_pg_login.xml</p:Property>
+        <p:Property name="zoom">1</p:Property>
+      </p:Properties>
+    </p:Page>
+    <p:Page>
+      <p:Properties>
+        <p:Property name="id">pg_dashboard</p:Property>
+        <p:Property name="name">02 Dashboard</p:Property>
+        <p:Property name="width">1440</p:Property>
+        <p:Property name="height">900</p:Property>
+        <p:Property name="pageFileName">page_pg_dashboard.xml</p:Property>
+        <p:Property name="zoom">1</p:Property>
+      </p:Properties>
+    </p:Page>
+    <p:Page>
+      <p:Properties>
+        <p:Property name="id">pg_knowledge_base</p:Property>
+        <p:Property name="name">03 Knowledge Base</p:Property>
+        <p:Property name="width">1440</p:Property>
+        <p:Property name="height">900</p:Property>
+        <p:Property name="pageFileName">page_pg_knowledge_base.xml</p:Property>
+        <p:Property name="zoom">1</p:Property>
+      </p:Properties>
+    </p:Page>
+    <p:Page>
+      <p:Properties>
+        <p:Property name="id">pg_questions</p:Property>
+        <p:Property name="name">04 Questions Table</p:Property>
+        <p:Property name="width">1440</p:Property>
+        <p:Property name="height">900</p:Property>
+        <p:Property name="pageFileName">page_pg_questions.xml</p:Property>
+        <p:Property name="zoom">1</p:Property>
+      </p:Properties>
+    </p:Page>
+    <p:Page>
+      <p:Properties>
+        <p:Property name="id">pg_question_dialogs</p:Property>
+        <p:Property name="name">05 Question Dialogs</p:Property>
+        <p:Property name="width">1440</p:Property>
+        <p:Property name="height">900</p:Property>
+        <p:Property name="pageFileName">page_pg_question_dialogs.xml</p:Property>
+        <p:Property name="zoom">1</p:Property>
+      </p:Properties>
+    </p:Page>
+    <p:Page>
+      <p:Properties>
+        <p:Property name="id">pg_settings_states</p:Property>
+        <p:Property name="name">06 Settings and States</p:Property>
+        <p:Property name="width">1440</p:Property>
+        <p:Property name="height">900</p:Property>
+        <p:Property name="pageFileName">page_pg_settings_states.xml</p:Property>
+        <p:Property name="zoom">1</p:Property>
+      </p:Properties>
+    </p:Page>
+  </p:Pages>
+</p:Document>

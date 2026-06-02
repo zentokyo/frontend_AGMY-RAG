@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { query } from '../../db/index.js'
 import { requireAppAuth } from '../../middleware/appAuth.js'
+import { evaluateAnswer } from '../../services/rag.js'
 
 const router = Router()
 router.use(requireAppAuth)
@@ -16,10 +17,12 @@ router.post('/answers', async (req, res, next) => {
     }
 
     const { rows } = await query(
-      `SELECT eq.exam_question_id, eq.exam_id, eq.status, q.answer_text, q.text
+      `SELECT eq.exam_question_id, eq.exam_id, eq.status, q.answer_text, q.text,
+              e.exam_theme_id, et.title AS theme_title
        FROM exam_question eq
        JOIN exam e ON e.exam_id = eq.exam_id
        JOIN question q ON q.question_id = eq.question_id
+       LEFT JOIN exam_theme et ON et.exam_theme_id = e.exam_theme_id
        WHERE eq.exam_question_id = $1 AND e.user_id = $2`,
       [exam_question_id, req.appUser.id]
     )
@@ -29,10 +32,19 @@ router.post('/answers', async (req, res, next) => {
       return res.status(409).json({ error: 'Question already answered' })
     }
 
-    const normalizedGiven = answer_text.trim().toLowerCase()
-    const normalizedModel = String(item.answer_text || '').trim().toLowerCase()
-    const isCorrect = normalizedGiven === normalizedModel
+    // ── RAG-оценка ответа через DeepSeek + Qdrant ─────────────────────
+    const ragResult = await evaluateAnswer({
+      question: item.text,
+      answer: answer_text,
+      themeTitle: item.theme_title || undefined,
+    })
 
+    // Fallback на точное сравнение, если RAG недоступен
+    const isCorrect = ragResult.is_correct !== null
+      ? ragResult.is_correct
+      : answer_text.trim().toLowerCase() === String(item.answer_text || '').trim().toLowerCase()
+
+    // ── Сохранение ответа ──────────────────────────────────────────────
     await query(
       `INSERT INTO answer (answer_id, exam_question_id, answer_text, is_correct)
        VALUES ($1, $2, $3, $4)`,
@@ -129,6 +141,7 @@ router.post('/answers', async (req, res, next) => {
       exam_id: item.exam_id,
       exam_question_id,
       is_correct: isCorrect,
+      method: ragResult.method,
       completed,
       left_count: leftCount,
       ...(completed ? { is_passed: isPassed, score } : {}),

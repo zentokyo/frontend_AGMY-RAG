@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<p:Page xmlns:p="http://www.evolus.vn/Namespace/Pencil">
+  <p:Properties>
+    <p:Property name="id">pg_login</p:Property>
+    <p:Property name="name">01 Login</p:Property>
+    <p:Property name="width">1440</p:Property>
+    <p:Property name="height">900</p:Property>
+    <p:Property name="pageFileName">page_pg_login.xml</p:Property>
+    <p:Property name="zoom">1</p:Property>
+  </p:Properties>
+  <p:Content>
+    <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+      <rect x="0" y="0" width="1440" height="900" fill="#F1F5F9"/>
+      <circle cx="720" cy="124" r="34" fill="#2563EB"/>
+      <text x="720" y="134" text-anchor="middle" font-size="34" font-weight="700" fill="#FFFFFF">A</text>
+      <text x="720" y="200" text-anchor="middle" font-size="36" font-weight="700" fill="#0F172A">AGMY RAG</text>
+      <text x="720" y="232" text-anchor="middle" font-size="16" fill="#64748B">Административная панель</text>
+      <rect x="500" y="270" width="440" height="440" rx="16" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <text x="540" y="322" font-size="28" font-weight="600" fill="#1E293B">Вход в систему</text>
+      <text x="540" y="370" font-size="14" fill="#334155">Email</text>
+      <rect x="540" y="384" width="360" height="46" rx="10" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="556" y="413" font-size="14" fill="#94A3B8">admin@example.com</text>
+      <text x="540" y="464" font-size="14" fill="#334155">Пароль</text>
+      <rect x="540" y="478" width="360" height="46" rx="10" fill="#FFFFFF" stroke="#CBD5E1"/>
+      <text x="556" y="507" font-size="14" fill="#94A3B8">••••••••</text>
+      <circle cx="874" cy="501" r="10" fill="#E2E8F0"/>
+      <rect x="540" y="550" width="360" height="50" rx="10" fill="#2563EB"/>
+      <text x="720" y="581" text-anchor="middle" font-size="16" font-weight="600" fill="#FFFFFF">Войти</text>
+      <rect x="540" y="620" width="360" height="12" rx="6" fill="#DBEAFE"/>
+      <rect x="540" y="620" width="180" height="12" rx="6" fill="#2563EB"/>
+      <text x="540" y="654" font-size="12" fill="#64748B">Состояние loading (progress placeholder)</text>
+      <rect x="40" y="36" width="256" height="44" rx="10" fill="#111827"/>
+      <text x="56" y="64" font-size="14" fill="#FFFFFF">toast.success: Вы вошли в систему</text>
+    </svg>
+  </p:Content>
+</p:Page>

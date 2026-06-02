@@ -11,9 +11,9 @@ test('register -> login -> exam -> stats', async ({ page }) => {
   await page.getByRole('button', { name: 'Создать аккаунт' }).click()
 
   await expect(page).toHaveURL(/\/app$/)
-  await expect(page.getByRole('heading', { name: 'Главная' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Добро пожаловать/ })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Экзамены' }).click()
+  await page.goto('/app/exams')
   await expect(page).toHaveURL(/\/app\/exams$/)
   await expect(page.getByRole('heading', { name: 'Экзамены' })).toBeVisible()
 

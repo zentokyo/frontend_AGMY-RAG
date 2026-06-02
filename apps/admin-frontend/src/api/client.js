@@ -28,8 +28,15 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config
+    const url = typeof original?.url === 'string' ? original.url : ''
 
-    if (error.response?.status !== 401 || original._retry) {
+    // Do not recurse into refresh on bootstrap/auth endpoints — especially /auth/refresh:
+    // 401 there must reject normally, otherwise we'd hit catch below and reload /login forever.
+    const isPublicAuthEndpoint = ['/auth/refresh', '/auth/login', '/auth/logout'].some((path) =>
+      url.includes(path)
+    )
+
+    if (error.response?.status !== 401 || original._retry || isPublicAuthEndpoint) {
       return Promise.reject(error)
     }
 
@@ -55,7 +62,9 @@ api.interceptors.response.use(
     } catch (err) {
       processQueue(err, null)
       useAuthStore.getState().clearAuth()
-      window.location.href = '/login'
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
       return Promise.reject(err)
     } finally {
       refreshing = false
