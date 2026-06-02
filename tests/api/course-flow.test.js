@@ -124,9 +124,14 @@ test.before(async () => {
     )
   }
 
-  // Create course_block + block_topic for this test
+  // Create course_block + block_topic as the first block for this test,
+  // regardless of seed data that may already exist in the local database.
+  const { rows: orderRows } = await query(
+    `SELECT COALESCE(MIN(block_order), 1)::int - 1 AS block_order FROM course_block`
+  )
   const { rows: cbRows } = await query(
-    `INSERT INTO course_block (title, block_order) VALUES ('Course E2E Block', 99) RETURNING id`
+    `INSERT INTO course_block (title, block_order) VALUES ('Course E2E Block', $1) RETURNING id`,
+    [orderRows[0].block_order]
   )
   blockId = cbRows[0].id
 

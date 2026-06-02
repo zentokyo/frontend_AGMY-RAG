@@ -35,9 +35,6 @@ export async function evaluateAnswer({ question, answer, themeTitle }) {
   if (!txt) {
     return { is_correct: false, method: 'empty' }
   }
-  if (txt.split(/\s+/).length < 2) {
-    return { is_correct: false, method: 'too_short' }
-  }
 
   try {
     // ── 1. Векторизация вопроса ─────────────────────────────────────────

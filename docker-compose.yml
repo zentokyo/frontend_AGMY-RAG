@@ -49,12 +49,12 @@ services:
     image: minio/minio:latest
     restart: unless-stopped
     ports:
-      - '${S3_PORT:-7000}:${S3_PORT:-7000}'
+      - '${S3_PORT:-9000}:${S3_PORT:-9000}'
       - '9001:9001'
     environment:
       MINIO_ROOT_USER: ${S3_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${S3_PASSWORD:-minioadmin}
-      MINIO_ADDRESS: :${S3_PORT:-7000}
+      MINIO_ADDRESS: :${S3_PORT:-9000}
       MINIO_CONSOLE_ADDRESS: :9001
     volumes:
       - minio_data:/data
@@ -71,7 +71,7 @@ services:
     entrypoint: >
       /bin/bash -c "
       sleep 3;
-      /usr/bin/mc alias set myminio http://assistant-file-storage:${S3_PORT:-7000} ${S3_USER:-minioadmin} ${S3_PASSWORD:-minioadmin};
+      /usr/bin/mc alias set myminio http://assistant-file-storage:${S3_PORT:-9000} ${S3_USER:-minioadmin} ${S3_PASSWORD:-minioadmin};
       /usr/bin/mc mb --ignore-existing myminio/${S3_BUCKET:-assistant};
       /usr/bin/mc cp --recursive /theme_files/* myminio/${S3_BUCKET:-assistant} 2>/dev/null || true;
       exit 0;
@@ -99,7 +99,7 @@ services:
   assistant_bot:
     container_name: assistant_bot
     build:
-      context: ./bot
+      context: ./converters/bot
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
@@ -125,7 +125,7 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-example}
       NODE_ENV: production
-      S3_ENDPOINT: http://assistant-file-storage:${S3_PORT:-7000}
+      S3_ENDPOINT: http://assistant-file-storage:${S3_PORT:-9000}
       STORAGE_TYPE: s3
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:3001}
       BACKEND_ROOT: /backend

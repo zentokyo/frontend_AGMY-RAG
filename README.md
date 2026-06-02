@@ -9,7 +9,7 @@
 - **Python FastAPI backend**: legacy-сервис ассистента, порт `8000`;
 - **RAG-утилиты**: индексация базы знаний и интеграции с Qdrant/LLM.
 
-> Важно: старый каталог `bot/` в активном дереве проекта отсутствует. Поэтому не используйте голую команду `docker compose up -d --build` для запуска всех сервисов сразу, пока сервис `assistant_bot` не будет удалён из `docker-compose.yml` или каталог `bot/` не будет восстановлен. Ниже команды запускают только актуальные сервисы.
+> Важно: старый Telegram-бот хранится в `converters/bot` и остаётся legacy-сервисом. Основной пользовательский сценарий сейчас живёт в веб-чате `apps/chat-frontend`.
 
 ## Структура
 
@@ -63,11 +63,11 @@ DB_PASSWORD=example
 CLIENT_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:3001
 ```
 
-На macOS порт `7000` часто занят AirPlay/AirTunes. Если MinIO не стартует, поменяйте в `.env` `S3_PORT`, например:
+MinIO по умолчанию слушает `9000`. Если этот порт занят, поменяйте в `.env` `S3_PORT`, например:
 
 ```env
-S3_PORT=9000
-S3_ENDPOINT=http://localhost:9000
+S3_PORT=9002
+S3_ENDPOINT=http://localhost:9002
 ```
 
 ## 1. Контейнеры инфраструктуры
@@ -83,7 +83,7 @@ docker compose up -d assistant-vector-db assistant_db assistant-file-storage cre
 ```bash
 docker compose ps
 curl http://localhost:6333/healthz
-curl http://localhost:${S3_PORT:-7000}/minio/health/live
+curl http://localhost:${S3_PORT:-9000}/minio/health/live
 ```
 
 Первичная загрузка дампа БД, если volume пустой:
@@ -187,6 +187,12 @@ docker compose up -d --build assistant-vector-db assistant_db assistant-file-sto
 
 Эта команда не запускает `assistant_bot` и не поднимает dev-сервер чата. Чат для разработки запускайте отдельно через `npm run dev:chat`.
 
+Полный Docker-запуск с legacy-ботом:
+
+```bash
+docker compose up -d --build
+```
+
 ## 7. Docker dev-фронты
 
 Если хотите поднять Vite-фронты тоже в Docker, запускайте профиль `dev` с явным списком сервисов:
@@ -257,13 +263,9 @@ npm run test:all
 
 Запустите Docker Desktop, OrbStack или Colima и повторите `docker compose ps`.
 
-**`docker compose up -d --build` падает на `./bot`**
+**MinIO не стартует на `9000`**
 
-Это ожидаемо для текущего дерева: активного каталога `bot/` нет. Используйте команды из этого README с явным списком сервисов или удалите/восстановите сервис `assistant_bot`.
-
-**MinIO не стартует на `7000`**
-
-На macOS порт может быть занят AirPlay/AirTunes. Поменяйте `S3_PORT` в `.env`, например на `9000`, и обновите локальный `S3_ENDPOINT`.
+Поменяйте `S3_PORT` в `.env`, например на `9002`, и обновите локальный `S3_ENDPOINT`.
 
 **RAG падает в fallback**
 
