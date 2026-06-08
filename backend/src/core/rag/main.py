@@ -1,15 +1,13 @@
 import logging
 import re
 import json
-from langchain_chroma import Chroma
 from src.core.rag.deepseek_llm import DeepSeekFlashLLM
 from src.core.rag.ingest import GigaChatEmbeddings
+from src.core.rag.qdrant_store import QdrantKnowledgeStore
 
 logger = logging.getLogger(__name__)
 
 # -------------------- Настройки --------------------
-
-CHROMA_PATH = "src/core/rag/db_metadata_v5"
 
 # Максимальное количество символов контекста, подаваемого в LLM.
 # Ограничение нужно, чтобы не превышать контекстное окно модели.
@@ -140,7 +138,7 @@ def answer_question(
         question: str,
         answer: str,
         model: DeepSeekFlashLLM,
-        db: Chroma | None = None,
+        db: QdrantKnowledgeStore | None = None,
         theme_title: str | None = None,
         use_assertion_splitting: bool = False,
         use_query_decomposition: bool = False,
@@ -154,7 +152,7 @@ def answer_question(
         question: Текст вопроса экзамена.
         answer: Текст ответа студента.
         model: Экземпляр DeepSeekFlashLLM для вызовов LLM.
-        db: Экземпляр Chroma (если None — создаётся локально, для обратной совместимости).
+        db: Экземпляр QdrantKnowledgeStore (если None — создаётся локально).
         theme_title: Название темы для фильтрации поиска (опционально).
         use_assertion_splitting: Разбивать ли ответ на отдельные утверждения.
         use_query_decomposition: Разбивать ли вопрос на подвопросы.
@@ -165,39 +163,43 @@ def answer_question(
     Returns:
         True — ответ верный, False — ответ неверный, None — невозможно определить.
     """
-    # Если Chroma не передана через DI — создаём локально (обратная совместимость)
     if db is None:
-        logger.warning("Chroma DB не передана через DI, создаётся локально. "
+        logger.warning("Qdrant store не передан через DI, создаётся локально. "
                        "Рекомендуется использовать IoC-контейнер.")
         embeddings = GigaChatEmbeddings()
-        db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
+        db = QdrantKnowledgeStore(embeddings)
 
     # 1. Подготовка запросов
     search_queries = decompose_question(question, model) if use_query_decomposition else [question]
 
     # 2. Поиск с опциональной фильтрацией по теме
-    all_chunks = []
-    seen = set()
-
     search_kwargs = {"k": initial_k}
     if theme_title:
         search_kwargs["filter"] = {"source_theme": theme_title}
 
-    for q in search_queries:
-        try:
-            results = db.similarity_search(q, **search_kwargs)
-        except Exception as e:
-            logger.warning("Similarity search failed for query '%s': %s. Trying without filter.", q, e)
-            # Фолбэк — поиск без фильтра по теме
+    def collect_chunks(kwargs: dict) -> list:
+        chunks = []
+        seen = set()
+        for q in search_queries:
             try:
-                results = db.similarity_search(q, k=initial_k)
-            except Exception as e2:
-                logger.error("Similarity search completely failed: %s", e2)
-                return None
-        for doc in results:
-            if doc.page_content not in seen:
-                seen.add(doc.page_content)
-                all_chunks.append(doc)
+                results = db.similarity_search(q, **kwargs)
+            except Exception as e:
+                logger.warning("Similarity search failed for query '%s': %s", q, e)
+                continue
+            for doc in results:
+                key = doc.metadata.get("content_hash") or doc.page_content
+                if key not in seen:
+                    seen.add(key)
+                    chunks.append(doc)
+        return chunks
+
+    all_chunks = collect_chunks(search_kwargs)
+    if not all_chunks and theme_title:
+        logger.warning(
+            "Context not found for theme '%s'; retrying Qdrant search without theme filter",
+            theme_title,
+        )
+        all_chunks = collect_chunks({"k": initial_k})
 
     # 3. Реранжирование
     if use_reranking and all_chunks:

@@ -2,16 +2,19 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 
-process.env.NODE_ENV = 'test'
 process.env.CLIENT_ORIGIN = 'http://localhost:5174'
+process.env.PYTHON_API_URL ||= 'http://127.0.0.1:8001'
+process.env.INTERNAL_API_TOKEN ||= 'change-me-internal-token'
+process.env.DB_HOST ||= 'localhost'
+process.env.DB_PORT ||= process.env.POSTGRES_PUBLISHED_PORT || '5433'
+process.env.DB_NAME ||= process.env.POSTGRES_DB || 'assistant'
+process.env.DB_USER ||= process.env.POSTGRES_USER || 'postgres'
+process.env.DB_PASSWORD ||= process.env.POSTGRES_PASSWORD || 'example'
 
-const { createApp } = await import('../../apps/api/src/app.js')
-const { query } = await import('../../apps/api/src/db/index.js')
+const { query, closeDb } = await import('./db.js')
 
-let server
-let baseUrl
+const baseUrl = process.env.PYTHON_API_URL
 let accessToken
-let cookieJar = ''
 
 const themeId     = randomUUID()
 const examThemeId = randomUUID()
@@ -142,13 +145,7 @@ test.before(async () => {
   )
   topicId = btRows[0].id
 
-  // Register a user for the tests
-  const app = createApp()
-  server = app.listen(0)
-  await new Promise((resolve) => server.once('listening', resolve))
-  const { port } = server.address()
-  baseUrl = `http://127.0.0.1:${port}`
-
+  // Register a user directly through FastAPI.
   const email = `course_e2e_${Date.now()}@example.com`
   const regRes = await fetch(`${baseUrl}/api/app/auth/register`, {
     method: 'POST',
@@ -158,16 +155,13 @@ test.before(async () => {
   assert.equal(regRes.status, 201)
   const regBody = await regRes.json()
   accessToken = regBody.accessToken
-  cookieJar = regRes.headers.get('set-cookie')?.split(';')[0] ?? ''
 })
 
 test.after(async () => {
   // Cleanup seeded course data
   await query(`DELETE FROM block_topic WHERE id = $1`, [topicId]).catch(() => {})
   await query(`DELETE FROM course_block WHERE id = $1`, [blockId]).catch(() => {})
-  if (server) {
-    await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())))
-  }
+  await closeDb()
 })
 
 const auth = () => ({ authorization: `Bearer ${accessToken}` })

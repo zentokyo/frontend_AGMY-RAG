@@ -1,29 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-process.env.NODE_ENV = 'test'
 process.env.CLIENT_ORIGIN = 'http://localhost:5173'
+process.env.PYTHON_API_URL ||= 'http://127.0.0.1:8001'
+process.env.INTERNAL_API_TOKEN ||= 'change-me-internal-token'
 
-const { createApp } = await import('../../apps/api/src/app.js')
-
-let server
-let baseUrl
-
-test.before(async () => {
-  const app = createApp()
-  server = app.listen(0)
-  await new Promise((resolve) => server.once('listening', resolve))
-  const { port } = server.address()
-  baseUrl = `http://127.0.0.1:${port}`
-})
-
-test.after(async () => {
-  if (server) {
-    await new Promise((resolve, reject) => {
-      server.close((err) => (err ? reject(err) : resolve()))
-    })
-  }
-})
+const baseUrl = process.env.PYTHON_API_URL
 
 test('GET /api/auth/me returns 401 without token', async () => {
   const res = await fetch(`${baseUrl}/api/auth/me`)
@@ -42,4 +24,11 @@ test('POST /api/auth/login validates missing fields', async () => {
 test('GET /api/questions requires bearer token', async () => {
   const res = await fetch(`${baseUrl}/api/questions`)
   assert.equal(res.status, 401)
+})
+
+test('GET / serves the admin SPA from FastAPI', async () => {
+  const res = await fetch(`${baseUrl}/`)
+  assert.equal(res.status, 200)
+  assert.match(res.headers.get('content-type') || '', /text\/html/)
+  assert.match(await res.text(), /<div id="root"><\/div>/)
 })

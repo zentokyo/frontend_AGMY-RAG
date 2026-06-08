@@ -2,19 +2,24 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 
-process.env.NODE_ENV = 'test'
 process.env.CLIENT_ORIGIN = 'http://localhost:5174'
+process.env.PYTHON_API_URL ||= 'http://127.0.0.1:8001'
+process.env.INTERNAL_API_TOKEN ||= 'change-me-internal-token'
+process.env.DB_HOST ||= 'localhost'
+process.env.DB_PORT ||= process.env.POSTGRES_PUBLISHED_PORT || '5433'
+process.env.DB_NAME ||= process.env.POSTGRES_DB || 'assistant'
+process.env.DB_USER ||= process.env.POSTGRES_USER || 'postgres'
+process.env.DB_PASSWORD ||= process.env.POSTGRES_PASSWORD || 'example'
 
-const { createApp } = await import('../../apps/api/src/app.js')
-const { query } = await import('../../apps/api/src/db/index.js')
+const { query, closeDb } = await import('./db.js')
 
-let server
-let baseUrl
+const baseUrl = process.env.PYTHON_API_URL
 let cookieJar = ''
 
 const themeId = randomUUID()
 const examThemeId = randomUUID()
 const questionId = randomUUID()
+const fileId = randomUUID()
 
 test.before(async () => {
   await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`).catch(() => {})
@@ -186,20 +191,23 @@ test.before(async () => {
      ON CONFLICT (question_id) DO NOTHING`,
     [questionId, 'Какой ответ правильный?', '42', themeId]
   )
+  await query(
+    `INSERT INTO file (file_id, filename)
+     VALUES ($1, $2)
+     ON CONFLICT (file_id) DO NOTHING`,
+    [fileId, 'e2e-theme-material.pdf']
+  )
+  await query(
+    `INSERT INTO theme_file (theme_id, file_id)
+     VALUES ($1, $2)
+     ON CONFLICT (theme_id, file_id) DO NOTHING`,
+    [themeId, fileId]
+  )
 
-  const app = createApp()
-  server = app.listen(0)
-  await new Promise((resolve) => server.once('listening', resolve))
-  const { port } = server.address()
-  baseUrl = `http://127.0.0.1:${port}`
 })
 
 test.after(async () => {
-  if (server) {
-    await new Promise((resolve, reject) => {
-      server.close((err) => (err ? reject(err) : resolve()))
-    })
-  }
+  await closeDb()
 })
 
 test('app auth register/login/me/refresh/logout flow', async () => {
@@ -258,6 +266,24 @@ test('app exam -> ask -> answer -> stats flow', async () => {
   assert.ok(Array.isArray(themes))
   assert.ok(themes.length > 0)
 
+  const appThemesRes = await fetch(`${baseUrl}/api/app/themes`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  })
+  assert.equal(appThemesRes.status, 200)
+  const appThemes = await appThemesRes.json()
+  const seededTheme = appThemes.find((theme) => theme.theme_id === themeId)
+  assert.ok(seededTheme)
+  assert.equal(seededTheme.file_count >= 1, true)
+
+  const downloadRes = await fetch(`${baseUrl}/api/app/themes/${themeId}/download`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  })
+  assert.equal(downloadRes.status, 200)
+  const download = await downloadRes.json()
+  assert.equal(download.theme_id, themeId)
+  assert.equal(download.download_type, 'metadata')
+  assert.equal(download.files.length >= 1, true)
+
   const createExamRes = await fetch(`${baseUrl}/api/app/exams`, {
     method: 'POST',
     headers: {
@@ -306,4 +332,48 @@ test('app exam -> ask -> answer -> stats flow', async () => {
   assert.equal(statsLastRes.status, 200)
   const statsLast = await statsLastRes.json()
   assert.ok(Array.isArray(statsLast.answer_list))
+})
+
+test('FastAPI public app routes derive user from JWT and isolate admin access', async () => {
+  const email = `direct_fastapi_${Date.now()}@example.com`
+
+  const unauthRes = await fetch(`${baseUrl}/api/app/course/blocks`)
+  assert.equal(unauthRes.status, 401)
+
+  const registerRes = await fetch(`${baseUrl}/api/app/auth/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email,
+      password: 'Password123',
+      username: 'Direct FastAPI',
+    }),
+  })
+  assert.equal(registerRes.status, 201)
+  const cookie = registerRes.headers.get('set-cookie')?.split(';')[0]
+  assert.ok(cookie?.startsWith('appRefreshToken='))
+
+  const registerBody = await registerRes.json()
+  assert.ok(registerBody.accessToken)
+  assert.equal(registerBody.refreshToken, undefined)
+
+  const authHeaders = { authorization: `Bearer ${registerBody.accessToken}` }
+  const meRes = await fetch(`${baseUrl}/api/app/auth/me`, { headers: authHeaders })
+  assert.equal(meRes.status, 200)
+  const me = await meRes.json()
+  assert.equal(me.user.email, email)
+
+  const courseRes = await fetch(`${baseUrl}/api/app/course/blocks`, { headers: authHeaders })
+  assert.equal(courseRes.status, 200)
+  const course = await courseRes.json()
+  assert.ok(Array.isArray(course.blocks))
+
+  const adminRes = await fetch(`${baseUrl}/api/questions`, { headers: authHeaders })
+  assert.equal(adminRes.status, 403)
+
+  const logoutRes = await fetch(`${baseUrl}/api/app/auth/logout`, {
+    method: 'POST',
+    headers: { cookie },
+  })
+  assert.equal(logoutRes.status, 200)
 })

@@ -1,4 +1,4 @@
-# AGMY RAG — единый стек: PostgreSQL, MinIO, FastAPI, Telegram-бот, админ-панель (Node + React)
+# AGMY RAG — единый стек: PostgreSQL, MinIO, FastAPI, Telegram-бот и React-фронтенды
 # Скопируйте .env.example → .env и при необходимости поправьте секреты.
 
 services:
@@ -6,7 +6,7 @@ services:
   # ── Vector Database (Qdrant) ──────────────────────────────────────────────
   assistant-vector-db:
     container_name: assistant-vector-db
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.18.1
     restart: unless-stopped
     ports:
       - '6333:6333'
@@ -15,11 +15,6 @@ services:
       - qdrant_storage:/qdrant/storage
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:6333/healthz']
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
   # ── PostgreSQL ────────────────────────────────────────────────────────────
   assistant_db:
@@ -36,7 +31,7 @@ services:
     volumes:
       - assistant_pgdata:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PUBLISHED_PORT:-5433}:5432"
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-assistant}']
       interval: 5s
@@ -77,12 +72,12 @@ services:
       exit 0;
       "
 
-  # ── Python FastAPI (устаревает, будет удалён) ─────────────────────────────
+  # ── Python FastAPI: основное RAG-ядро ─────────────────────────────────────
   assistant_backend:
     container_name: assistant_backend
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     env_file:
       - path: .env
@@ -90,10 +85,25 @@ services:
     depends_on:
       assistant_db:
         condition: service_healthy
+      assistant-vector-db:
+        condition: service_started
       assistant-file-storage:
         condition: service_started
+    environment:
+      QDRANT_URL: http://assistant-vector-db:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-assistant_knowledge}
+      QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-2560}
+      GIGACHAT_EMBEDDINGS_MODEL: ${GIGACHAT_EMBEDDINGS_MODEL:-EmbeddingsGigaR}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-me-internal-token}
+      JWT_SECRET: ${JWT_SECRET:-change_me_access_use_long_random_string}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_different_long_random_string}
+      ACCESS_TOKEN_EXPIRES: ${ACCESS_TOKEN_EXPIRES:-15m}
+      REFRESH_TOKEN_EXPIRES: ${REFRESH_TOKEN_EXPIRES:-7d}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173,http://localhost:5174}
+      KB_PATH: /app/src/core/rag/knowledge_base
     ports:
-      - '8000:8000'
+      - '${FASTAPI_PUBLISHED_PORT:-8001}:8000'
 
   # ── Telegram-бот (устаревает, будет удалён) ───────────────────────────────
   assistant_bot:
@@ -108,47 +118,6 @@ services:
     depends_on:
       - assistant_backend
 
-  # ── Админ-панель: API + собранный React ──────────────────────────────────
-  admin-server:
-    container_name: agmy_admin_server
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      DB_HOST: assistant_db
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-assistant}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-example}
-      NODE_ENV: production
-      S3_ENDPOINT: http://assistant-file-storage:${S3_PORT:-9000}
-      STORAGE_TYPE: s3
-      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:3001}
-      BACKEND_ROOT: /backend
-      INGEST_SCRIPT_PATH: /backend/src/core/rag/ingest.py
-      KB_PATH: /backend/knowledge_base
-      CHROMA_DB_PATH: /backend/src/core/rag/db_metadata_v5
-      ADMIN_TOOLS_PATH: /admin_tools/admin_tools.py
-      QDRANT_URL: http://assistant-vector-db:6333
-    ports:
-      - '3001:3001'
-    depends_on:
-      assistant_db:
-        condition: service_healthy
-      assistant-vector-db:
-        condition: service_healthy
-      assistant_backend:
-        condition: service_started
-      assistant-file-storage:
-        condition: service_started
-    volumes:
-      - ./python:/admin_tools:ro
-      - ./backend:/backend:rw
-
   # ── Локальная разработка фронта админки (опционально) ────────────────────
   admin-client-dev:
     profiles: ['dev']
@@ -162,9 +131,9 @@ services:
       - ./apps/admin-frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_BASE: http://localhost:3001
+      VITE_API_BASE: http://localhost:8001/api
     depends_on:
-      - admin-server
+      - assistant_backend
 
   # ── Локальная разработка фронта веб-чата (опционально) ───────────────────
   chat-client-dev:
@@ -179,9 +148,9 @@ services:
       - ./apps/chat-frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_BASE: http://localhost:3001
+      VITE_API_BASE: http://localhost:8001/api
     depends_on:
-      - admin-server
+      - assistant_backend
 
 volumes:
   minio_data:

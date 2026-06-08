@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import pool, { query } from '../../api/src/db/index.js'
+import { closeDb, query } from '../../../tests/api/db.js'
 
 const themeId = randomUUID()
 const examThemeId = randomUUID()
@@ -8,9 +8,10 @@ const questionId = randomUUID()
 const THEME_TITLE = 'E2E UI Theme'
 const QUESTION_TEXT = 'Сколько будет 6 * 7?'
 const ANSWER_TEXT = '42'
+const ADMIN_PASSWORD_HASH = '$2b$12$RIMUlCoyBiZ1SpzPVHYrkeh55RBU/LOX6oYJuFSAe7XQ6pkzQV7Om'
 
 async function run() {
-  await pool.query(`
+  await query(`
     CREATE TABLE IF NOT EXISTS app_users (
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
@@ -29,6 +30,13 @@ async function run() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `)
+  await query(
+    `INSERT INTO admin_users (email, password_hash, role)
+     VALUES ('admin@example.com', $1, 'admin')
+     ON CONFLICT (email)
+     DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'admin'`,
+    [ADMIN_PASSWORD_HASH]
+  )
 
   await query(
     `INSERT INTO theme (theme_id, title, theme_order)
@@ -58,5 +66,5 @@ run()
     process.exit(1)
   })
   .finally(async () => {
-    await pool.end()
+    await closeDb()
   })

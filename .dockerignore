@@ -1,0 +1,12 @@
+.git
+.env
+.idea
+.venv
+**/__pycache__
+**/*.pyc
+**/node_modules
+apps/chat-frontend/dist
+legacy_uploads
+outputs
+screenshots
+test-results

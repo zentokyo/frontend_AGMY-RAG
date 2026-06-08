@@ -13,8 +13,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm --prefix ../api run start',
-      url: 'http://127.0.0.1:3001',
+      command: 'npm --prefix ../.. run start',
+      url: 'http://127.0.0.1:8001',
       reuseExistingServer: true,
       timeout: 120_000,
     },

@@ -1,9 +1,11 @@
 import axios from 'axios'
 import useAuthStore from '../store/authStore.js'
 
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '/api').replace(/\/+$/, '')
+
 const api = axios.create({
-  // In dev Vite proxies /api -> localhost:3001
-  baseURL: import.meta.env.VITE_API_BASE ?? '/api',
+  // In dev Vite proxies /api directly to FastAPI.
+  baseURL: API_BASE,
   withCredentials: true,
 })
 
@@ -49,7 +51,7 @@ api.interceptors.response.use(
     refreshing = true
 
     try {
-      const { data } = await axios.post('/api/app/auth/refresh', {}, { withCredentials: true })
+      const { data } = await axios.post(`${API_BASE}/app/auth/refresh`, {}, { withCredentials: true })
       const { accessToken } = data
       useAuthStore.getState().setAccessToken(accessToken)
       processQueue(null, accessToken)

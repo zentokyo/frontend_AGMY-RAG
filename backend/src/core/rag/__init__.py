@@ -3,9 +3,10 @@ __all__ = (
     "GigaChatLiteLLM",
     "answer_question",
     "GigaChatEmbeddings",
-    "CHROMA_PATH",
+    "QdrantKnowledgeStore",
 )
 
-from .main import GigaChatLiteLLM, answer_question, CHROMA_PATH
+from .main import GigaChatLiteLLM, answer_question
 from .deepseek_llm import DeepSeekFlashLLM
 from .ingest import GigaChatEmbeddings
+from .qdrant_store import QdrantKnowledgeStore

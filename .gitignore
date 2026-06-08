@@ -1,14 +1,11 @@
 node_modules/
-apps/api/node_modules/
 apps/admin-frontend/node_modules/
 apps/chat-frontend/node_modules/
+apps/*/dist/
+legacy_uploads/
 
 # Env
 .env
-apps/api/.env
-apps/api/uploads/
-
-apps/api/public/
 
 # Python
 .venv/

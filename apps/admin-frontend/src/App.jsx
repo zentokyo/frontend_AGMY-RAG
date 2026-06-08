@@ -18,16 +18,19 @@ function RequireAuth({ children }) {
 export default function App() {
   const [bootstrapping, setBootstrapping] = useState(true)
   const setAuth = useAuthStore((s) => s.setAuth)
+  const clearAuth = useAuthStore((s) => s.clearAuth)
 
   // On first load, try to restore session via httpOnly cookie
   useEffect(() => {
     refreshToken()
-      .then(({ accessToken }) =>
-        getMe().then((user) => setAuth(accessToken, user))
-      )
-      .catch(() => {}) // no session — user stays logged out
+      .then(async ({ accessToken }) => {
+        setAuth(accessToken, null)
+        const user = await getMe()
+        setAuth(accessToken, user)
+      })
+      .catch(clearAuth)
       .finally(() => setBootstrapping(false))
-  }, [setAuth])
+  }, [clearAuth, setAuth])
 
   if (bootstrapping) {
     return (

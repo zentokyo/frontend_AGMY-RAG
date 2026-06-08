@@ -3,8 +3,6 @@ import logging
 import uuid
 from datetime import datetime
 
-from langchain_chroma import Chroma
-
 from src.core.assistant.dto.answer import CreateAnswerDTO
 from src.core.assistant.entities.answer import Answer
 from src.core.assistant.entities.exam import ExamStatus, ExamRate
@@ -13,6 +11,7 @@ from src.core.assistant.interfaces.repositories.answer import AnswerRepository
 from src.core.assistant.interfaces.repositories.exam import ExamRepository
 from src.core.assistant.interfaces.uow.answer import AnswerUnitOfWork
 from src.core.rag import DeepSeekFlashLLM, answer_question
+from src.core.rag.qdrant_store import QdrantKnowledgeStore
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class CreateAnswerUseCase:
             self,
             uow: AnswerUnitOfWork,
             model: DeepSeekFlashLLM,
-            db: Chroma,
+            db: QdrantKnowledgeStore,
     ):
         self._uow = uow
         self._llm = model
@@ -40,7 +39,7 @@ class CreateAnswerUseCase:
                 exam.exam_id
             )
 
-            # Получаем название темы для фильтрации поиска в ChromaDB
+            # Получаем название темы для фильтрации поиска в Qdrant
             theme_title = None
             try:
                 theme_title = exam.theme.title if hasattr(exam.theme, 'title') else None

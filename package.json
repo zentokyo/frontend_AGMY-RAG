@@ -2,25 +2,26 @@
   "name": "agmy-rag-monorepo",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:admin\" \"npm run dev:chat\"",
-    "dev:api": "npm --prefix apps/api run dev",
+    "dev": "concurrently \"npm run dev:admin\" \"npm run dev:chat\"",
     "dev:admin": "npm --prefix apps/admin-frontend run dev",
     "dev:chat": "npm --prefix apps/chat-frontend run dev",
     "build": "npm --prefix apps/admin-frontend run build",
     "build:chat": "npm --prefix apps/chat-frontend run build",
-    "start": "npm --prefix apps/api run start",
-    "install:all": "npm install && npm --prefix apps/api install && npm --prefix apps/admin-frontend install && npm --prefix apps/chat-frontend install",
-    "db:migrate": "npm --prefix apps/api run db:migrate",
-    "db:seed": "npm --prefix apps/api run db:seed",
-    "test:api": "npm --prefix apps/api test",
+    "start": "npm run build && docker compose up --remove-orphans assistant_backend",
+    "install:all": "npm install && npm --prefix apps/admin-frontend install && npm --prefix apps/chat-frontend install",
+    "db:migrate": "docker compose run --rm assistant_backend python -m src.cli.migrate",
+    "db:seed": "docker compose run --rm assistant_backend python -m src.cli.seed_admin",
+    "test:api": "node --test tests/api/**/*.test.js",
     "test:e2e": "npm --prefix apps/chat-frontend run e2e",
     "test:all": "npm run test:api && npm run build && npm run build:chat",
-    "compose:up": "docker compose up -d --build",
+    "compose:up": "npm run build && docker compose up -d --build --remove-orphans",
     "compose:down": "docker compose down",
     "compose:dev": "docker compose --profile dev up -d --build"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "pg": "^8.16.3"
   }
 }

@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test'
 import { join } from 'path'
 
+const STUDENT_BASE_URL = process.env.STUDENT_BASE_URL || 'http://127.0.0.1:4174'
+const ADMIN_BASE_URL = process.env.ADMIN_BASE_URL || 'http://127.0.0.1:8001'
+
+function appUrl(baseUrl, path) {
+  return new URL(path, baseUrl).toString()
+}
+
 test('full manual flow and screenshots', async ({ browser }) => {
   const screenshotsDir = '/Users/elvsevolod/CursorProject/frontend_AGMY-RAG/screenshots'
 
@@ -15,7 +22,7 @@ test('full manual flow and screenshots', async ({ browser }) => {
   const password = 'Password123'
 
   // Register
-  await studentPage.goto('http://localhost:5174/register')
+  await studentPage.goto(appUrl(STUDENT_BASE_URL, '/register'))
   await studentPage.waitForLoadState('domcontentloaded')
   await studentPage.screenshot({ path: join(screenshotsDir, '1_student_register.png') })
 
@@ -30,11 +37,11 @@ test('full manual flow and screenshots', async ({ browser }) => {
   await studentPage.screenshot({ path: join(screenshotsDir, '3_student_dashboard.png') })
 
   // Course Page
-  await studentPage.goto('http://localhost:5174/app/course')
+  await studentPage.goto(appUrl(STUDENT_BASE_URL, '/app/course'))
   await studentPage.screenshot({ path: join(screenshotsDir, '4_student_course.png') })
 
   // Exams Page
-  await studentPage.goto('http://localhost:5174/app/exams')
+  await studentPage.goto(appUrl(STUDENT_BASE_URL, '/app/exams'))
   await studentPage.screenshot({ path: join(screenshotsDir, '5_student_exams.png') })
 
   // Start Exam
@@ -53,11 +60,11 @@ test('full manual flow and screenshots', async ({ browser }) => {
   await studentPage.getByRole('button', { name: 'Отправить ответ' }).click()
 
   // Stats Page
-  await studentPage.goto('http://localhost:5174/app/stats')
+  await studentPage.goto(appUrl(STUDENT_BASE_URL, '/app/stats'))
   await studentPage.screenshot({ path: join(screenshotsDir, '8_student_stats.png') })
 
   // Profile Page
-  await studentPage.goto('http://localhost:5174/app/profile')
+  await studentPage.goto(appUrl(STUDENT_BASE_URL, '/app/profile'))
   await studentPage.screenshot({ path: join(screenshotsDir, '9_student_profile.png') })
   
   await studentContext.close()
@@ -74,7 +81,7 @@ test('full manual flow and screenshots', async ({ browser }) => {
   adminPage.on('console', msg => console.log('ADMIN CONSOLE:', msg.type(), msg.text()))
   adminPage.on('pageerror', err => console.log('ADMIN PAGE ERROR:', err.message))
 
-  await adminPage.goto('http://localhost:5173/login')
+  await adminPage.goto(appUrl(ADMIN_BASE_URL, '/login'))
   await adminPage.waitForLoadState('domcontentloaded')
   
   // Wait a bit to let React render
@@ -92,11 +99,11 @@ test('full manual flow and screenshots', async ({ browser }) => {
   await adminPage.screenshot({ path: join(screenshotsDir, '12_admin_dashboard.png') })
 
   // Knowledge base / Documents
-  await adminPage.goto('http://localhost:5173/knowledge-base')
+  await adminPage.goto(appUrl(ADMIN_BASE_URL, '/knowledge-base'))
   await adminPage.screenshot({ path: join(screenshotsDir, '13_admin_knowledge_base.png') })
 
   // Questions management
-  await adminPage.goto('http://localhost:5173/questions')
+  await adminPage.goto(appUrl(ADMIN_BASE_URL, '/questions'))
   await adminPage.screenshot({ path: join(screenshotsDir, '14_admin_questions.png') })
 
   await adminContext.close()
