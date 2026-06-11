@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-process.env.CLIENT_ORIGIN = 'http://localhost:5173'
+process.env.CLIENT_ORIGIN = 'http://127.0.0.1:5173'
 process.env.PYTHON_API_URL ||= 'http://127.0.0.1:8001'
 process.env.INTERNAL_API_TOKEN ||= 'change-me-internal-token'
 

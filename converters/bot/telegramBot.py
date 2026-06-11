@@ -46,7 +46,7 @@ MAIN_MENU, EXAM_ASK_COUNT, EXAM_IN_PROGRESS, HELP_MENU, STATS_MENU, THEORY_MENU,
 # ============================================================================
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-API_BASE_URL = os.getenv("EXAM_API_BASE_URL", "http://localhost:8000")
+API_BASE_URL = os.getenv("EXAM_API_BASE_URL", "http://127.0.0.1:8000")
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15.0"))
 
 if not BOT_TOKEN:

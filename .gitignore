@@ -3,6 +3,10 @@ apps/admin-frontend/node_modules/
 apps/chat-frontend/node_modules/
 apps/*/dist/
 legacy_uploads/
+outputs/
+screenshots/
+design/
+designs/
 
 # Env
 .env

@@ -285,7 +285,7 @@ docker compose -f docker/storage.yml -f docker/file_storage.yml --env-file .env 
 alembic upgrade head
 ```
 
-6. Запустить сервер на localhost:8000
+6. Запустить сервер на 127.0.0.1:8000
 
 ```commandline
 uvicorn --factory src.main:create_app

@@ -55,7 +55,7 @@ def main():
     parser.add_argument("--file", required=True, help="File path or partial source payload to match")
     parser.add_argument(
         "--url",
-        default=os.getenv("QDRANT_URL", "http://localhost:6333"),
+        default=os.getenv("QDRANT_URL", "http://127.0.0.1:6333"),
         help="Qdrant URL",
     )
     parser.add_argument(

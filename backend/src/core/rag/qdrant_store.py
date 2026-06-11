@@ -8,7 +8,7 @@ from qdrant_client import QdrantClient, models
 
 logger = logging.getLogger(__name__)
 
-QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333").rstrip("/")
+QDRANT_URL = os.getenv("QDRANT_URL", "http://127.0.0.1:6333").rstrip("/")
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "assistant_knowledge")
 VECTOR_SIZE = int(os.getenv("QDRANT_VECTOR_SIZE", "2560"))
 UPSERT_BATCH_SIZE = int(os.getenv("QDRANT_UPSERT_BATCH_SIZE", "64"))

@@ -38,20 +38,15 @@ cp .env.example .env
 
 ```bash
 npm run build
-docker compose up -d --build --remove-orphans \
-  assistant-vector-db \
-  assistant_db \
-  assistant-file-storage \
-  create-buckets \
-  assistant_backend
+docker compose up -d --build --remove-orphans assistant-vector-db assistant_db assistant-file-storage create-buckets assistant_backend
 ```
 
 После запуска:
 
-- admin frontend: [http://localhost:8001](http://localhost:8001);
-- FastAPI docs: [http://localhost:8001/docs](http://localhost:8001/docs);
-- Qdrant: [http://localhost:6333](http://localhost:6333);
-- MinIO console: [http://localhost:9001](http://localhost:9001).
+- admin frontend: [http://127.0.0.1:8001](http://127.0.0.1:8001);
+- FastAPI docs: [http://127.0.0.1:8001/docs](http://127.0.0.1:8001/docs);
+- Qdrant: [http://127.0.0.1:6333](http://127.0.0.1:6333);
+- MinIO console: [http://127.0.0.1:9001](http://127.0.0.1:9001).
 
 При старте `assistant_backend` автоматически запускает Python migration runner.
 Он поддерживает как чистую базу, так и существующую legacy-схему без таблицы
@@ -67,7 +62,7 @@ npm run db:seed
 
 ## Frontend-разработка
 
-Сначала поднимите FastAPI на `http://localhost:8001`, затем:
+Сначала поднимите FastAPI на `http://127.0.0.1:8001`, затем:
 
 ```bash
 npm run dev
@@ -75,10 +70,19 @@ npm run dev
 
 Адреса:
 
-- admin: [http://localhost:5173](http://localhost:5173);
-- пользовательский кабинет: [http://localhost:5174](http://localhost:5174).
+- admin: [http://127.0.0.1:5173](http://127.0.0.1:5173);
+- пользовательский кабинет: [http://127.0.0.1:5174](http://127.0.0.1:5174).
 
 Оба Vite-сервера проксируют `/api` прямо в FastAPI.
+
+## Windows
+
+- Используйте адреса `127.0.0.1`, а не `localhost`: так Docker Desktop,
+  браузер и Vite не упираются в IPv6/DNS-разницу Windows.
+- Если PowerShell показывает русский текст кракозябрами, включите UTF-8:
+  `chcp 65001`.
+- Репозиторий фиксирует UTF-8 и LF через `.editorconfig` и `.gitattributes`;
+  в VS Code проверьте `File Encoding: UTF-8`.
 
 Запуск отдельно:
 

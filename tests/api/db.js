@@ -3,7 +3,7 @@ import pg from 'pg'
 const { Pool } = pg
 
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || '127.0.0.1',
   port: Number(process.env.DB_PORT || process.env.POSTGRES_PUBLISHED_PORT || 5433),
   database: process.env.DB_NAME || process.env.POSTGRES_DB || 'assistant',
   user: process.env.DB_USER || process.env.POSTGRES_USER || 'postgres',
