@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { CheckCircle, XCircle, BookOpen, RefreshCw, ChevronRight, Trophy } from 'lucide-react'
+import { CheckCircle, XCircle, BookOpen, RefreshCw, ChevronRight, Trophy, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 import { getExamResult, startTopicExam, startBlockExam, startFinalExam } from '../api/appCourse.js'
 import { createExam } from '../api/appExam.js'
@@ -65,6 +65,10 @@ export default function ExamResultsPage() {
     queryKey: ['exam-result', examId],
     queryFn: () => getExamResult(examId),
     retry: false,
+    refetchInterval: (query) => {
+      const data = query.state.data
+      return data && !data.result_ready ? 2000 : false
+    },
   })
 
   const retryMutation = useMutation({
@@ -122,6 +126,7 @@ export default function ExamResultsPage() {
     )
   }
 
+  const isReady = result.result_ready !== false
   const isPassed = result.is_passed
 
   const scopeLabel = {
@@ -139,7 +144,14 @@ export default function ExamResultsPage() {
           <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">Результаты</h1>
           <p className="mt-0.5 text-sm text-slate-500">{scopeLabel} · {result.theme_title}</p>
         </div>
-        <ScoreRing score={result.score} />
+        {isReady ? (
+          <ScoreRing score={result.score} />
+        ) : (
+          <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full border-4 border-blue-200 bg-blue-50">
+            <Loader2 size={24} className="animate-spin text-blue-600" />
+            <span className="mt-1 text-xs font-medium text-blue-700">Проверка</span>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -149,17 +161,27 @@ export default function ExamResultsPage() {
           <p className="text-xs text-slate-500">Вопросов</p>
         </div>
         <div className="card p-3 text-center">
-          <p className="text-lg font-semibold text-green-600">{result.correct_answers}</p>
+          <p className="text-lg font-semibold text-green-600">{isReady ? result.correct_answers : '...'}</p>
           <p className="text-xs text-slate-500">Верных</p>
         </div>
         <div className="card p-3 text-center">
-          <p className="text-lg font-semibold text-red-500">{result.total_answers - result.correct_answers}</p>
+          <p className="text-lg font-semibold text-red-500">{isReady ? result.total_answers - result.correct_answers : '...'}</p>
           <p className="text-xs text-slate-500">Ошибок</p>
         </div>
       </div>
 
       {/* Passed banner / Retry dialog */}
-      {isPassed && result.exam_scope === 'final' ? (
+      {!isReady ? (
+        <div className="card flex items-center gap-3 bg-blue-50 p-4">
+          <Loader2 size={20} className="animate-spin text-blue-500 shrink-0" />
+          <div>
+            <p className="font-medium text-blue-800">Ответы записаны, идет проверка</p>
+            <p className="text-sm text-blue-700">
+              Осталось проверить: {result.pending_evaluations ?? 0}. Результат обновится автоматически.
+            </p>
+          </div>
+        </div>
+      ) : isPassed && result.exam_scope === 'final' ? (
         <div className="card flex items-center gap-3 bg-green-50 p-4">
           <Trophy size={24} className="text-green-500 shrink-0" />
           <div>
@@ -182,7 +204,7 @@ export default function ExamResultsPage() {
       )}
 
       {/* Navigation after pass */}
-      {isPassed && (
+      {isReady && isPassed && (
         <button className="btn-primary flex items-center gap-2" onClick={goNext}>
           {result.exam_scope === 'final' ? 'На страницу курса' : 'Продолжить'}
           <ChevronRight size={16} />
@@ -195,17 +217,29 @@ export default function ExamResultsPage() {
           <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wide">Разбор ответов</h2>
           <div className="space-y-2">
             {result.answer_list.map((a, i) => (
-              <div key={i} className={clsx('card p-3 text-sm', a.is_correct ? 'border-green-200' : 'border-red-200')}>
+              <div
+                key={i}
+                className={clsx(
+                  'card p-3 text-sm',
+                  a.evaluation_status === 'pending' || a.evaluation_status === 'evaluating'
+                    ? 'border-blue-200'
+                    : a.is_correct
+                      ? 'border-green-200'
+                      : 'border-red-200'
+                )}
+              >
                 <p className="font-medium text-slate-800">{i + 1}. {a.question_text}</p>
                 <div className="mt-1.5 grid grid-cols-1 gap-1 sm:grid-cols-2">
                   <div className="flex items-start gap-1.5">
-                    {a.is_correct
+                    {a.evaluation_status === 'pending' || a.evaluation_status === 'evaluating'
+                      ? <Loader2 size={14} className="animate-spin text-blue-500 mt-0.5 shrink-0" />
+                      : a.is_correct
                       ? <CheckCircle size={14} className="text-green-500 mt-0.5 shrink-0" />
                       : <XCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
                     }
                     <p className="text-slate-700">Ваш: <span className="font-medium">{a.user_answer}</span></p>
                   </div>
-                  {!a.is_correct && (
+                  {a.evaluation_status !== 'pending' && a.evaluation_status !== 'evaluating' && !a.is_correct && (
                     <p className="text-slate-500">Верный: <span className="font-medium text-green-700">{a.model_answer}</span></p>
                   )}
                 </div>

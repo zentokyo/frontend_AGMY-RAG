@@ -85,11 +85,15 @@ pydantic-settings==2.11.0
 pydantic_core==2.41.4
 Pygments==2.19.2
 pypdf==6.1.2
+Pillow==12.2.0
 PyPika==0.48.9
+pymupdf4llm==1.27.2.3
 pyproject_hooks==1.2.0
+python-docx==1.2.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
 python-multipart==0.0.20
+pytesseract==0.3.13
 python-telegram-bot==22.5
 qdrant-client==1.18.0
 PyYAML==6.0.3

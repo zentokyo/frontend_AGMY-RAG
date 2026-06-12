@@ -19,10 +19,10 @@ export default function ExamSessionPage() {
     mutationFn: ({ examQuestionId, answerText }) => answerQuestion(examQuestionId, answerText),
     onSuccess: (data) => {
       setAnswer('')
+      toast.success('Ответ записан')
       if (data.completed) {
         navigate(`/app/exams/${examId}/result`, { replace: true })
       } else {
-        toast.success(data.is_correct ? 'Верно!' : 'Ответ принят')
         question.refetch()
       }
     },
@@ -86,7 +86,7 @@ export default function ExamSessionPage() {
               onClick={() => submit.mutate({ examQuestionId: q.exam_question_id, answerText: answer })}
               disabled={!answer.trim() || submit.isPending}
             >
-              {submit.isPending ? 'Отправка...' : 'Отправить ответ'}
+              {submit.isPending ? 'Записываем...' : 'Отправить ответ'}
             </button>
           </div>
         )}

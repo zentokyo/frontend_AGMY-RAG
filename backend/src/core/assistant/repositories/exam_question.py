@@ -8,6 +8,7 @@ from src.core.assistant.entities.exam_question import ExamQuestion, ExamQuestion
 from src.core.assistant.exceptions.answer import AllQuestionAlreadyAnsweredException
 from src.core.assistant.interfaces.repositories.exam_question import ExamQuestionRepository
 from src.core.assistant.models.exam_question import ExamQuestionSQLModel
+from src.core.assistant.models.question import QuestionSQLModel
 
 
 class SQLAlchemyExamQuestionRepository(ExamQuestionRepository):
@@ -25,7 +26,7 @@ class SQLAlchemyExamQuestionRepository(ExamQuestionRepository):
             .options(
                 joinedload(
                     ExamQuestionSQLModel.question
-                )
+                ).joinedload(QuestionSQLModel.theme)
             )
             .where(ExamQuestionSQLModel.exam_id == exam_id)
         )
@@ -55,7 +56,7 @@ class SQLAlchemyExamQuestionRepository(ExamQuestionRepository):
             .options(
                 joinedload(
                     ExamQuestionSQLModel.question
-                )
+                ).joinedload(QuestionSQLModel.theme)
             )
             .where(
                 and_(

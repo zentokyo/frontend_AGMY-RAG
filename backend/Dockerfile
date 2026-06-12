@@ -7,9 +7,13 @@ ENV LANG=C.UTF-8 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY backend/requirements.txt ./
 
-RUN pip install -r requirements.txt
+RUN pip install --default-timeout=120 -r requirements.txt
 
 COPY backend/ .
 COPY apps/admin-frontend/dist ./static/admin

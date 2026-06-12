@@ -94,6 +94,7 @@ services:
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-assistant_knowledge}
       QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-2560}
       GIGACHAT_EMBEDDINGS_MODEL: ${GIGACHAT_EMBEDDINGS_MODEL:-EmbeddingsGigaR}
+      RAG_INGEST_MAX_ATTEMPTS: ${RAG_INGEST_MAX_ATTEMPTS:-3}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-me-internal-token}
       JWT_SECRET: ${JWT_SECRET:-change_me_access_use_long_random_string}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_different_long_random_string}
@@ -104,6 +105,32 @@ services:
       KB_PATH: /app/src/core/rag/knowledge_base
     ports:
       - '${FASTAPI_PUBLISHED_PORT:-8001}:8000'
+
+  # ── Durable worker: обработка ingest_job из PostgreSQL ───────────────────
+  assistant_ingest_worker:
+    container_name: assistant_ingest_worker
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      assistant_db:
+        condition: service_healthy
+      assistant-vector-db:
+        condition: service_started
+      assistant-file-storage:
+        condition: service_started
+    environment:
+      QDRANT_URL: http://assistant-vector-db:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-assistant_knowledge}
+      QDRANT_VECTOR_SIZE: ${QDRANT_VECTOR_SIZE:-2560}
+      GIGACHAT_EMBEDDINGS_MODEL: ${GIGACHAT_EMBEDDINGS_MODEL:-EmbeddingsGigaR}
+      RAG_INGEST_MAX_ATTEMPTS: ${RAG_INGEST_MAX_ATTEMPTS:-3}
+      KB_PATH: /app/src/core/rag/knowledge_base
+    command: ["sh", "-c", "python -m src.cli.migrate && exec python -m src.cli.ingest_worker"]
 
   # ── Telegram-бот (устаревает, будет удалён) ───────────────────────────────
   assistant_bot:

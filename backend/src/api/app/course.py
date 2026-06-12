@@ -515,7 +515,12 @@ async def get_course_exam_result_handler(
             """
             SELECT
               COUNT(*)::int AS total_answers,
-              COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0)::int AS correct_answers
+              COALESCE(SUM(CASE WHEN a.is_correct THEN 1 ELSE 0 END), 0)::int AS correct_answers,
+              COALESCE(SUM(CASE
+                WHEN a.evaluation_status IN ('pending', 'evaluating') THEN 1
+                ELSE 0
+              END), 0)::int AS pending_evaluations,
+              COALESCE(SUM(CASE WHEN a.evaluation_status = 'failed' THEN 1 ELSE 0 END), 0)::int AS failed_evaluations
             FROM answer a
             JOIN exam_question eq ON eq.exam_question_id = a.exam_question_id
             WHERE eq.exam_id = :exam_id
@@ -532,7 +537,10 @@ async def get_course_exam_result_handler(
               q.text AS question_text,
               a.answer_text AS user_answer,
               q.answer_text AS model_answer,
-              a.is_correct
+              a.is_correct,
+              a.evaluation_status,
+              a.evaluation_method,
+              a.evaluation_error
             FROM answer a
             JOIN exam_question eq ON eq.exam_question_id = a.exam_question_id
             JOIN question q ON q.question_id = eq.question_id
@@ -546,6 +554,7 @@ async def get_course_exam_result_handler(
 
     total_answers = totals["total_answers"]
     correct_answers = totals["correct_answers"]
+    pending_evaluations = totals["pending_evaluations"]
     score = correct_answers / total_answers if total_answers else 0
 
     context = {}
@@ -578,6 +587,9 @@ async def get_course_exam_result_handler(
         "theme_title": exam["theme_title"],
         "total_answers": total_answers,
         "correct_answers": correct_answers,
+        "pending_evaluations": pending_evaluations,
+        "failed_evaluations": totals["failed_evaluations"],
+        "result_ready": exam["status"] == "Выполнен" and pending_evaluations == 0,
         "score": score,
         "is_passed": score >= PASS_THRESHOLD,
         "pass_threshold": PASS_THRESHOLD,

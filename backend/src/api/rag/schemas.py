@@ -5,6 +5,7 @@ class RagEvaluateRequest(BaseModel):
     question: str
     answer: str
     expected_answer: str | None = None
+    theme_id: str | None = None
     theme_title: str | None = None
     use_assertion_splitting: bool = True
     use_query_decomposition: bool = True

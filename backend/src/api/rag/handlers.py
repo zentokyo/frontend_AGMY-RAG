@@ -6,7 +6,7 @@ from dishka.integrations.fastapi import inject
 from fastapi import APIRouter
 
 from src.api.rag.schemas import RagEvaluateRequest, RagEvaluateResponse
-from src.core.rag import DeepSeekFlashLLM, QdrantKnowledgeStore, answer_question
+from src.core.rag import DeepSeekFlashLLM, QdrantKnowledgeStore, answer_question, check_response_against_expected
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +37,28 @@ async def evaluate_answer_handler(
             explanation="Answer exactly matches expected answer",
         )
 
+    if schema.expected_answer:
+        expected_verdict, expected_explanation = check_response_against_expected(
+            question=schema.question,
+            response_text=schema.answer,
+            expected_answer=schema.expected_answer,
+            model=model,
+        )
+        if expected_verdict is not None:
+            return RagEvaluateResponse(
+                is_correct=expected_verdict,
+                method="python_expected_semantic",
+                score=1.0 if expected_verdict else 0.0,
+                explanation=expected_explanation,
+            )
+
     result = await asyncio.to_thread(
         answer_question,
         schema.question,
         schema.answer,
         model,
         db=db,
+        theme_id=schema.theme_id,
         theme_title=schema.theme_title,
         use_assertion_splitting=schema.use_assertion_splitting,
         use_query_decomposition=schema.use_query_decomposition,

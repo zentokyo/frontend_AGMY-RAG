@@ -3,6 +3,7 @@ import uuid
 import time
 import logging
 import requests
+import threading
 from typing import Optional
 from dotenv import load_dotenv
 from urllib3.exceptions import InsecureRequestWarning
@@ -33,12 +34,19 @@ class GigaChatAuth:
         self.client_secret = os.getenv("GIGACHAT_AUTHORIZATION_KEY")
         self._access_token: Optional[str] = None
         self._expires_at: float = 0
+        self._lock = threading.Lock()
 
     def get_token(self) -> str:
-        # Если токен есть и он будет валиден еще как минимум 2 минуты
         if self._access_token and time.time() < self._expires_at - 120:
             return self._access_token
 
+        with self._lock:
+            return self._refresh_token()
+
+    def _refresh_token(self) -> str:
+        # Если токен есть и он будет валиден еще как минимум 2 минуты
+        if self._access_token and time.time() < self._expires_at - 120:
+            return self._access_token
         if not self.client_secret:
             raise GigaChatAuthError("GIGACHAT_AUTHORIZATION_KEY не найден в .env")
 

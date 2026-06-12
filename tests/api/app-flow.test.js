@@ -21,6 +21,24 @@ const examThemeId = randomUUID()
 const questionId = randomUUID()
 const fileId = randomUUID()
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function waitFor(check, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs
+  let lastError
+  while (Date.now() < deadline) {
+    try {
+      const value = await check()
+      if (value) return value
+    } catch (error) {
+      lastError = error
+    }
+    await sleep(250)
+  }
+  if (lastError) throw lastError
+  assert.fail('Timed out waiting for condition')
+}
+
 test.before(async () => {
   await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`).catch(() => {})
 
@@ -107,9 +125,16 @@ test.before(async () => {
       answer_id UUID PRIMARY KEY,
       exam_question_id UUID NOT NULL REFERENCES exam_question(exam_question_id),
       answer_text TEXT NOT NULL,
-      is_correct BOOLEAN NOT NULL
+      is_correct BOOLEAN,
+      evaluation_status VARCHAR(32) NOT NULL DEFAULT 'done',
+      evaluation_method VARCHAR(64),
+      evaluation_error TEXT
     );
   `)
+  await query(`ALTER TABLE answer ALTER COLUMN is_correct DROP NOT NULL`).catch(() => {})
+  await query(`ALTER TABLE answer ADD COLUMN IF NOT EXISTS evaluation_status VARCHAR(32) NOT NULL DEFAULT 'done'`)
+  await query(`ALTER TABLE answer ADD COLUMN IF NOT EXISTS evaluation_method VARCHAR(64)`)
+  await query(`ALTER TABLE answer ADD COLUMN IF NOT EXISTS evaluation_error TEXT`)
 
   // Ensure schema required for /api/app/* exists.
   await query(`
@@ -317,7 +342,10 @@ test('app exam -> ask -> answer -> stats flow', async () => {
   })
   assert.equal(answerRes.status, 200)
   const answer = await answerRes.json()
-  assert.equal(answer.is_correct, true)
+  assert.equal(answer.answer_recorded, true)
+  assert.equal(answer.evaluation_status, 'pending')
+  assert.equal(answer.completed, true)
+  assert.equal(answer.result_ready, false)
 
   const statsAllRes = await fetch(`${baseUrl}/api/app/stats/all`, {
     headers: { authorization: `Bearer ${accessToken}` },
@@ -326,11 +354,13 @@ test('app exam -> ask -> answer -> stats flow', async () => {
   const statsAll = await statsAllRes.json()
   assert.equal(statsAll.total_answers >= 1, true)
 
-  const statsLastRes = await fetch(`${baseUrl}/api/app/stats/last`, {
-    headers: { authorization: `Bearer ${accessToken}` },
+  const statsLast = await waitFor(async () => {
+    const statsLastRes = await fetch(`${baseUrl}/api/app/stats/last`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+    })
+    if (statsLastRes.status !== 200) return null
+    return statsLastRes.json()
   })
-  assert.equal(statsLastRes.status, 200)
-  const statsLast = await statsLastRes.json()
   assert.ok(Array.isArray(statsLast.answer_list))
 })
 

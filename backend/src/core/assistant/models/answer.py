@@ -15,7 +15,10 @@ class AnswerSQLModel(SQLBaseModel):
     answer_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     exam_question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(ExamQuestionSQLModel.exam_question_id))
     answer_text: Mapped[str]
-    is_correct: Mapped[bool]
+    is_correct: Mapped[bool | None]
+    evaluation_status: Mapped[str] = mapped_column(default="done")
+    evaluation_method: Mapped[str | None]
+    evaluation_error: Mapped[str | None]
 
     exam_question: Mapped[ExamQuestionSQLModel] = relationship()
 

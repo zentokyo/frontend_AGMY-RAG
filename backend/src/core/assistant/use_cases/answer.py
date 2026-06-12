@@ -39,7 +39,16 @@ class CreateAnswerUseCase:
                 exam.exam_id
             )
 
-            # Получаем название темы для фильтрации поиска в Qdrant
+            # Получаем тему для фильтрации поиска в Qdrant
+            question_theme_id = None
+            question_theme_title = None
+            try:
+                question_theme = exam_question.question.theme
+                question_theme_id = str(question_theme.theme_id) if hasattr(question_theme, "theme_id") else None
+                question_theme_title = question_theme.title if hasattr(question_theme, "title") else None
+            except Exception:
+                pass
+
             theme_title = None
             try:
                 theme_title = exam.theme.title if hasattr(exam.theme, 'title') else None
@@ -52,7 +61,8 @@ class CreateAnswerUseCase:
                 create_answer_dto.answer_text,
                 self._llm,
                 db=self._db,
-                theme_title=theme_title,
+                theme_id=question_theme_id,
+                theme_title=question_theme_title or theme_title,
             )
 
             # Обработка None: если RAG не смог определить (ошибка LLM, нет контекста) —

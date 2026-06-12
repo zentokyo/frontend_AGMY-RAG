@@ -2,6 +2,7 @@ import uuid
 from typing import Self
 
 from sqlalchemy import ForeignKey
+from sqlalchemy import inspect as sqlalchemy_inspect
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.assistant.entities.exam_question import ExamQuestion, ExamQuestionStatus
@@ -30,9 +31,12 @@ class ExamQuestionSQLModel(SQLBaseModel):
         )
 
     def to_entity(self) -> ExamQuestion:
+        question = self.question.to_entity()
+        if "theme" not in sqlalchemy_inspect(self.question).unloaded:
+            question = self.question.to_entity_w_theme_load()
         return ExamQuestion(
             exam_question_id=self.exam_question_id,
             exam_id=self.exam_id,
-            question=self.question.to_entity(),
+            question=question,
             status=ExamQuestionStatus(self.status),
         )

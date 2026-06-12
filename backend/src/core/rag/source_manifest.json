@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "description": "Curated source documents for the first four knowledge-base blocks.",
+  "sources": [
+    {
+      "theme_order": 1,
+      "theme_title": "Эпидемиология гемоконтактных инфекций (ГВ, ГС, ВИЧ-инфекция)",
+      "path": "${DOWNLOADS}/Блок_1_Эпидемиология_гемоконтактных_инфекций_ГВ,_ГС,_ВИЧ_инфекция.pdf",
+      "filename": "Blok_1_Epidemiologiia_gemokontaktnykh_infektsii_.pdf"
+    },
+    {
+      "theme_order": 1,
+      "theme_title": "Эпидемиология гемоконтактных инфекций (ГВ, ГС, ВИЧ-инфекция)",
+      "path": "${KAF_EPID}/6 Профилактика ВИЧ-инфекции.docx",
+      "filename": "6_profilaktika_vich-infektsii.docx"
+    },
+    {
+      "theme_order": 1,
+      "theme_title": "Эпидемиология гемоконтактных инфекций (ГВ, ГС, ВИЧ-инфекция)",
+      "path": "${KAF_EPID}/7 Профилактика вирусных гепатитов В и С.docx",
+      "filename": "7_profilaktika_virusnykh_gepatitov_v_i_s.docx"
+    },
+    {
+      "theme_order": 2,
+      "theme_title": "Особенности вакцинации против ВГВ",
+      "path": "${DOWNLOADS}/Блок_2_Особенности_вакцинации_против_ВГВ_.pdf",
+      "filename": "Blok_2_Osobennosti_vaktsinatsii_protiv_VGV_.pdf"
+    },
+    {
+      "theme_order": 2,
+      "theme_title": "Особенности вакцинации против ВГВ",
+      "path": "${KAF_EPID}/46 Организация иммунопрофилактики инфекционных болезней.docx",
+      "filename": "46_organizatsiia_immunoprofilaktiki_infektsionnykh_boleznei.docx"
+    },
+    {
+      "theme_order": 2,
+      "theme_title": "Особенности вакцинации против ВГВ",
+      "path": "${KAF_EPID}/47 Обеспечение безопасности иммунизации.docx",
+      "filename": "47_obespechenie_bezopasnosti_immunizatsii.docx"
+    },
+    {
+      "theme_order": 2,
+      "theme_title": "Особенности вакцинации против ВГВ",
+      "path": "${KAF_EPID}/48 Условия транспортирования и хранения иммунобиологических препаратов.docx",
+      "filename": "48_usloviia_transportirovaniia_i_khraneniia_immunobiologicheskikh_preparatov.docx"
+    },
+    {
+      "theme_order": 3,
+      "theme_title": "Профилактика профессионального заражения",
+      "path": "${DOWNLOADS}/Блок_3_Профилактика_профессионального_заражения_.pdf",
+      "filename": "Blok_3_Profilaktika_professional'nogo_zarazheniia_.pdf"
+    },
+    {
+      "theme_order": 3,
+      "theme_title": "Профилактика профессионального заражения",
+      "path": "${KAF_EPID}/МР 3.1.0087-14 - Профилактика заражения ВИЧ.pdf",
+      "filename": "mr_3.1.0087-14_-_profilaktika_zarazheniia_vich.pdf"
+    },
+    {
+      "theme_order": 3,
+      "theme_title": "Профилактика профессионального заражения",
+      "path": "${KAF_EPID}/Приказ ВИЧ АК №277 2024 год.pdf",
+      "filename": "Prikaz VICh AK No. 277 2024 god.pdf"
+    },
+    {
+      "theme_order": 3,
+      "theme_title": "Профилактика профессионального заражения",
+      "path": "${KAF_EPID}/Приказ от 18.12.2020 №928.docx",
+      "filename": "prikaz_ot_18.12.2020_no_928.docx"
+    },
+    {
+      "theme_order": 3,
+      "theme_title": "Профилактика профессионального заражения",
+      "path": "${KAF_EPID}/СанПин 3.3686-21 ВИЧ.docx",
+      "filename": "sanpin_3.3686-21_vich.docx"
+    },
+    {
+      "theme_order": 4,
+      "theme_title": "Соблюдение правил регистрации аварийной ситуации на рабочем месте при проведении медицинских манипуляций",
+      "path": "${DOWNLOADS}/Блок_4_Соблюдение_правил_регистрации_аварийной_ситуации_на_рабочем.pdf",
+      "filename": "Blok_4_Sobliudenie_pravil_registratsii_avariinoi_situatsii_na_rabochem.pdf"
+    },
+    {
+      "theme_order": 4,
+      "theme_title": "Соблюдение правил регистрации аварийной ситуации на рабочем месте при проведении медицинских манипуляций",
+      "path": "${KAF_EPID}/44 Профилактика инфекций, связанных с оказанием медицинской помощи.docx",
+      "filename": "44_profilaktika_infektsii_sviazannykh_s_okazaniem_meditsinskoi_pomoshchi.docx"
+    },
+    {
+      "theme_order": 4,
+      "theme_title": "Соблюдение правил регистрации аварийной ситуации на рабочем месте при проведении медицинских манипуляций",
+      "path": "${KAF_EPID}/Раздел XLIV ИСМП.pdf",
+      "filename": "razdel_xliv_ismp.pdf"
+    },
+    {
+      "theme_order": 4,
+      "theme_title": "Соблюдение правил регистрации аварийной ситуации на рабочем месте при проведении медицинских манипуляций",
+      "path": "${KAF_EPID}/Приложения.docx",
+      "filename": "prilozheniia.docx"
+    },
+    {
+      "theme_order": 4,
+      "theme_title": "Соблюдение правил регистрации аварийной ситуации на рабочем месте при проведении медицинских манипуляций",
+      "path": "${KAF_EPID}/Приказ ВИЧ АК №277 2024 год.pdf",
+      "filename": "Prikaz VICh AK No. 277 2024 god.pdf"
+    }
+  ]
+}

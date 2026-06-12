@@ -127,10 +127,103 @@ cd backend
 alembic upgrade head
 ```
 
+## Индексация базы знаний
+
+Загрузка файлов через админку сохраняет документы в MinIO ограниченно
+параллельно (`RAG_UPLOAD_STORAGE_CONCURRENCY`) и ставит файлы в очередь
+`ingest_job`. Отдельный сервис `assistant_ingest_worker` забирает задачи из
+PostgreSQL через `FOR UPDATE SKIP LOCKED` и индексирует их с ограничением
+`RAG_UPLOAD_INDEX_CONCURRENCY`. Статусы видны в списке файлов:
+`queued` → `indexing` → `indexed` или `failed`. При перезапуске backend
+задачи остаются в очереди, а зависшие `running` worker возвращает в `queued`
+после `RAG_INGEST_STALE_AFTER_SECONDS`. После `RAG_INGEST_MAX_ATTEMPTS`
+следующая попытка переводит файл/job в `dead_letter`, чтобы проблемный документ
+не зацикливал переиндексацию.
+
+Каждый запуск индексации сохраняется в `ingest_job`: там лежат тип задачи,
+попытка, стадия (`reading`, `extracting`, `chunking`, `embedding`,
+`qdrant_upsert`, `done`), процент прогресса, ошибка и JSON-отчет по extraction /
+chunking. В админке доступны повторная индексация одного файла, всей темы и всех
+failed-файлов.
+
+Для ручного запуска worker одной пачкой:
+
+```bash
+python -m src.cli.ingest_worker --once --batch-size 2
+```
+
+В админке у каждого файла доступна история job: попытки, стадии, ошибки, время
+старта/финиша, тайминги стадий (`reading`, `extracting`, `chunking`,
+`qdrant_delete`, `embedding_qdrant_upsert`) и JSON-отчет extraction/chunking.
+Там же доступна панель мониторинга worker: глубина очереди, running/paused,
+failed/dead-letter, средняя длительность job и средние stage timings.
+
+Индексацию файла можно поставить на паузу, возобновить или отменить. Для
+`queued` job действие применяется сразу, для `running` job worker выполняет его
+кооперативно между стадиями, чтобы не оставить Qdrant/SQL в промежуточном
+состоянии.
+
+Для рабочей админской базы используйте файлы, привязанные к темам в SQL:
+
+```bash
+python -m src.cli.reindex_admin_documents --blue-green --concurrency 2
+```
+
+Флаг `--blue-green` собирает новую staging-коллекцию Qdrant и публикует ее
+через alias `QDRANT_COLLECTION` только после успешной индексации всех файлов.
+`--recreate-qdrant` оставлен для локальных разрушительных пересборок коллекции.
+
+Проверка извлечения текста и чанкинга без внешнего embeddings API и без записи в
+Qdrant:
+
+```bash
+python -m src.cli.reindex_admin_documents --dry-run --concurrency 2
+```
+
+Быстрая проверка retrieval по реальным вопросам из SQL:
+
+```bash
+python -m src.cli.rag_retrieval_smoke --limit 18 --k 5 --verbose
+```
+
+Проверка использует тот же retrieval-слой, что и приложение: Qdrant забирает
+расширенный пул кандидатов (`RAG_RETRIEVAL_FETCH_K`), после чего включает
+гибридный rerank по vector score + lexical overlap и MMR-диверсификацию.
+При оценке ответа в LLM передается ограниченный контекст
+(`RAG_MAX_CONTEXT_CHARS`, по умолчанию `8000` символов).
+Для регулярной оценки качества можно сохранять JSON-отчет с вопросами,
+попаданиями и top-k чанками:
+
+```bash
+python -m src.cli.rag_retrieval_smoke \
+  --limit 0 \
+  --k 5 \
+  --fetch-k 30 \
+  --min-filtered-hit-rate 1.0 \
+  --min-unfiltered-topk-theme-rate 0.95 \
+  --output-json retrieval-smoke-report.json
+```
+
+Проверка полного RAG/LLM-оценивания ответов по SQL `answer_text`:
+
+```bash
+python -m src.cli.rag_answer_eval \
+  --limit 0 \
+  --min-positive-pass-rate 0.8 \
+  --max-unknown-rate 0.2 \
+  --output-json answer-eval-report.json
+```
+
+Legacy-команда `python -m src.core.rag.ingest` читает Markdown из `KB_PATH` и нужна
+только для старого локального набора знаний. Не используйте ее для проверки
+админских тем и файлов из дампа.
+
 ## Проверки
 
 ```bash
 npm run test:api
+npm run test:retrieval
+npm run test:answers
 npm run build
 npm run build:chat
 npm run test:e2e
@@ -147,6 +240,7 @@ npm run test:all
 - `POSTGRES_*` — PostgreSQL;
 - `S3_*` — MinIO;
 - `QDRANT_URL`, `QDRANT_COLLECTION`, `QDRANT_VECTOR_SIZE` — Qdrant;
+- `RAG_RETRIEVAL_FETCH_K`, `RAG_HYBRID_RERANK_*`, `RAG_MMR_*` — качество retrieval;
 - `GIGACHAT_AUTHORIZATION_KEY`, `GIGACHAT_EMBEDDINGS_MODEL` — эмбеддинги;
 - `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` — LLM;
 - `JWT_SECRET`, `JWT_REFRESH_SECRET` — web auth;

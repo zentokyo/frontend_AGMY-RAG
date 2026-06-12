@@ -25,6 +25,24 @@ const questionId3 = randomUUID()
 let blockId
 let topicId
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function waitFor(check, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs
+  let lastError
+  while (Date.now() < deadline) {
+    try {
+      const value = await check()
+      if (value) return value
+    } catch (error) {
+      lastError = error
+    }
+    await sleep(250)
+  }
+  if (lastError) throw lastError
+  assert.fail('Timed out waiting for condition')
+}
+
 test.before(async () => {
   // ── schema (all IF NOT EXISTS — safe to run alongside app-flow.test.js) ──
   await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`).catch(() => {})
@@ -72,7 +90,11 @@ test.before(async () => {
      );`,
     `CREATE TABLE IF NOT EXISTS answer (
        answer_id UUID PRIMARY KEY, exam_question_id UUID NOT NULL REFERENCES exam_question(exam_question_id),
-       answer_text TEXT NOT NULL, is_correct BOOLEAN NOT NULL
+       answer_text TEXT NOT NULL,
+       is_correct BOOLEAN,
+       evaluation_status VARCHAR(32) NOT NULL DEFAULT 'done',
+       evaluation_method VARCHAR(64),
+       evaluation_error TEXT
      );`,
     `CREATE TABLE IF NOT EXISTS app_users (
        id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL,
@@ -106,6 +128,10 @@ test.before(async () => {
   ]) {
     await query(sql)
   }
+  await query(`ALTER TABLE answer ALTER COLUMN is_correct DROP NOT NULL`).catch(() => {})
+  await query(`ALTER TABLE answer ADD COLUMN IF NOT EXISTS evaluation_status VARCHAR(32) NOT NULL DEFAULT 'done'`)
+  await query(`ALTER TABLE answer ADD COLUMN IF NOT EXISTS evaluation_method VARCHAR(64)`)
+  await query(`ALTER TABLE answer ADD COLUMN IF NOT EXISTS evaluation_error TEXT`)
 
   // ── seed domain data ──────────────────────────────────────────────────────
   await query(
@@ -233,17 +259,18 @@ test('topic exam: start → answer correctly → topic marked passed', async () 
     })
     assert.equal(ansRes.status, 200)
     const ans = await ansRes.json()
-    assert.equal(ans.is_correct, true)
-    if (ans.completed) {
-      assert.equal(ans.is_passed, true)
-      break
-    }
+    assert.equal(ans.answer_recorded, true)
+    assert.equal(ans.evaluation_status, 'pending')
+    if (ans.completed) break
   }
 
   // Verify exam result endpoint
-  const resultRes = await fetch(`${baseUrl}/api/app/course/exams/${exam_id}/result`, { headers: auth() })
-  assert.equal(resultRes.status, 200)
-  const result = await resultRes.json()
+  const result = await waitFor(async () => {
+    const resultRes = await fetch(`${baseUrl}/api/app/course/exams/${exam_id}/result`, { headers: auth() })
+    assert.equal(resultRes.status, 200)
+    const body = await resultRes.json()
+    return body.result_ready ? body : null
+  })
   assert.equal(result.exam_scope, 'topic')
   assert.equal(result.is_passed, true)
   assert.ok(result.score >= 0.7)
@@ -287,15 +314,16 @@ test('block exam: start → answer correctly → block marked passed', async () 
     })
     assert.equal(ansRes.status, 200)
     const ans = await ansRes.json()
-    if (ans.completed) {
-      assert.equal(ans.is_passed, true)
-      break
-    }
+    assert.equal(ans.answer_recorded, true)
+    if (ans.completed) break
   }
 
-  const resultRes = await fetch(`${baseUrl}/api/app/course/exams/${exam_id}/result`, { headers: auth() })
-  assert.equal(resultRes.status, 200)
-  const result = await resultRes.json()
+  const result = await waitFor(async () => {
+    const resultRes = await fetch(`${baseUrl}/api/app/course/exams/${exam_id}/result`, { headers: auth() })
+    assert.equal(resultRes.status, 200)
+    const body = await resultRes.json()
+    return body.result_ready ? body : null
+  })
   assert.equal(result.exam_scope, 'block')
   assert.equal(result.is_passed, true)
 
