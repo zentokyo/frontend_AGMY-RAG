@@ -8,6 +8,7 @@ export default function ExamSessionPage() {
   const { examId } = useParams()
   const navigate = useNavigate()
   const [answer, setAnswer] = useState('')
+  const [isAdvancing, setIsAdvancing] = useState(false)
 
   const question = useQuery({
     queryKey: ['app-ask-question', examId],
@@ -17,21 +18,28 @@ export default function ExamSessionPage() {
 
   const submit = useMutation({
     mutationFn: ({ examQuestionId, answerText }) => answerQuestion(examQuestionId, answerText),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setAnswer('')
       toast.success('Ответ записан')
       if (data.completed) {
         navigate(`/app/exams/${examId}/result`, { replace: true })
       } else {
-        question.refetch()
+        setIsAdvancing(true)
+        try {
+          await question.refetch()
+        } finally {
+          setIsAdvancing(false)
+        }
       }
     },
     onError: (err) => {
+      setIsAdvancing(false)
       toast.error(err.response?.data?.error || 'Не удалось отправить ответ')
     },
   })
 
   const q = question.data?.question
+  const showQuestion = q && !isAdvancing
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -41,9 +49,13 @@ export default function ExamSessionPage() {
       </p>
 
       <div className="card p-5">
-        {question.isLoading && <p className="text-sm text-slate-500">Загрузка вопроса...</p>}
+        {(question.isLoading || isAdvancing) && (
+          <p className="text-sm text-slate-500">
+            {isAdvancing ? 'Готовим следующий вопрос...' : 'Загрузка вопроса...'}
+          </p>
+        )}
 
-        {question.isError && (
+        {question.isError && !isAdvancing && (
           <div className="space-y-3">
             <p className="text-sm text-slate-600">
               {question.error?.response?.data?.error || 'Вопросы закончились или экзамен завершён.'}
@@ -57,7 +69,7 @@ export default function ExamSessionPage() {
           </div>
         )}
 
-        {q && (
+        {showQuestion && (
           <div className="space-y-4">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Вопрос</p>
@@ -72,8 +84,9 @@ export default function ExamSessionPage() {
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder="Введите ответ"
+                disabled={submit.isPending || isAdvancing}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.ctrlKey && answer.trim()) {
+                  if (e.key === 'Enter' && e.ctrlKey && answer.trim() && !submit.isPending && !isAdvancing) {
                     submit.mutate({ examQuestionId: q.exam_question_id, answerText: answer })
                   }
                 }}
@@ -84,7 +97,7 @@ export default function ExamSessionPage() {
             <button
               className="btn-primary"
               onClick={() => submit.mutate({ examQuestionId: q.exam_question_id, answerText: answer })}
-              disabled={!answer.trim() || submit.isPending}
+              disabled={!answer.trim() || submit.isPending || isAdvancing}
             >
               {submit.isPending ? 'Записываем...' : 'Отправить ответ'}
             </button>

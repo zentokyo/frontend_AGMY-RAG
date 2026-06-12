@@ -402,7 +402,8 @@ async def _evaluate_answer(
         return {"is_correct": True, "method": "python_expected_exact"}
 
     if expected_answer:
-        expected_verdict, expected_explanation = check_response_against_expected(
+        expected_verdict, expected_explanation = await asyncio.to_thread(
+            check_response_against_expected,
             question=question,
             response_text=answer,
             expected_answer=expected_answer,
