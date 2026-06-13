@@ -61,9 +61,34 @@ async def get_admin_question_themes_handler(
     session: FromDishka[AsyncSession],
 ) -> list[dict]:
     result = await session.execute(
-        text("SELECT theme_id AS id, title FROM theme ORDER BY theme_order ASC")
+        text(
+            """
+            SELECT
+              t.theme_id AS id,
+              t.title,
+              bt.id AS topic_id,
+              cb.id AS block_id,
+              cb.title AS block_title
+            FROM theme t
+            LEFT JOIN block_topic bt ON bt.theme_id = t.theme_id
+            LEFT JOIN course_block cb ON cb.id = bt.block_id
+            ORDER BY cb.block_order ASC NULLS LAST,
+                     bt.topic_order ASC NULLS LAST,
+                     t.theme_order ASC,
+                     t.title ASC
+            """
+        )
     )
-    return [{"id": _json_uuid(row["id"]), "title": row["title"]} for row in result.mappings().all()]
+    return [
+        {
+            "id": _json_uuid(row["id"]),
+            "title": row["title"],
+            "topic_id": row["topic_id"],
+            "block_id": row["block_id"],
+            "block_title": row["block_title"] or "Нераспределённые темы",
+        }
+        for row in result.mappings().all()
+    ]
 
 
 @admin_questions_router.get("")
@@ -105,11 +130,17 @@ async def get_admin_questions_handler(
               q.text,
               q.answer_text,
               q.theme_id,
-              t.title AS theme_title
+              t.title AS theme_title,
+              cb.title AS block_title
             FROM question q
             JOIN theme t ON t.theme_id = q.theme_id
+            LEFT JOIN block_topic bt ON bt.theme_id = t.theme_id
+            LEFT JOIN course_block cb ON cb.id = bt.block_id
             {where}
-            ORDER BY t.theme_order ASC, q.text ASC
+            ORDER BY cb.block_order ASC NULLS LAST,
+                     bt.topic_order ASC NULLS LAST,
+                     t.theme_order ASC,
+                     q.text ASC
             LIMIT :limit OFFSET :offset
             """
         ),
@@ -219,9 +250,17 @@ async def update_admin_question_handler(
         result = await session.execute(
             text(
                 """
-                SELECT q.question_id AS id, q.text, q.answer_text, q.theme_id, t.title AS theme_title
+                SELECT
+                  q.question_id AS id,
+                  q.text,
+                  q.answer_text,
+                  q.theme_id,
+                  t.title AS theme_title,
+                  cb.title AS block_title
                 FROM question q
                 JOIN theme t ON t.theme_id = q.theme_id
+                LEFT JOIN block_topic bt ON bt.theme_id = t.theme_id
+                LEFT JOIN course_block cb ON cb.id = bt.block_id
                 WHERE q.question_id = :question_id
                 """
             ),
@@ -265,6 +304,7 @@ def _question_row(row) -> dict:
         "answer_text": row["answer_text"],
         "theme_id": _json_uuid(row["theme_id"]),
         "theme_title": row["theme_title"],
+        "block_title": row.get("block_title") or "Нераспределённые темы",
     }
 
 

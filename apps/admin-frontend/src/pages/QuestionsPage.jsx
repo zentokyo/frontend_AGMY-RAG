@@ -14,6 +14,7 @@ import ConfirmDialog from '../components/Modal/ConfirmDialog.jsx'
 const EMPTY_FORM = { text: '', answer_text: '', theme_id: '' }
 
 function ThemeSelect({ value, onChange, themes, placeholder = 'Выберите тему…', className = '', required = false }) {
+  const groupedThemes = groupThemesByBlock(themes)
   return (
     <div className={clsx('relative', className)}>
       <select
@@ -23,8 +24,12 @@ function ThemeSelect({ value, onChange, themes, placeholder = 'Выберите 
         required={required}
       >
         <option value="">{placeholder}</option>
-        {themes.map((t) => (
-          <option key={t.id} value={t.id}>{t.title}</option>
+        {groupedThemes.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.themes.map((t) => (
+              <option key={t.id} value={t.id}>{t.title}</option>
+            ))}
+          </optgroup>
         ))}
       </select>
       <ChevronDown
@@ -241,7 +246,12 @@ export default function QuestionsPage() {
     {
       key: 'theme_title',
       header: 'Тема',
-      render: (v) => <span className="badge bg-blue-50 text-blue-700">{v}</span>,
+      render: (v, row) => (
+        <div className="flex flex-col items-start gap-1">
+          {row.block_title && <span className="text-[11px] text-slate-400">{row.block_title}</span>}
+          <span className="badge bg-blue-50 text-blue-700">{v}</span>
+        </div>
+      ),
     },
     {
       key: 'actions',
@@ -358,4 +368,14 @@ export default function QuestionsPage() {
       />
     </div>
   )
+}
+
+function groupThemesByBlock(themes = []) {
+  const groups = new Map()
+  for (const theme of themes) {
+    const label = theme.block_title || 'Без блока'
+    if (!groups.has(label)) groups.set(label, [])
+    groups.get(label).push(theme)
+  }
+  return Array.from(groups, ([label, groupThemes]) => ({ label, themes: groupThemes }))
 }

@@ -25,6 +25,13 @@ DEFAULT_DOWNLOADS_DIR = Path(os.getenv("DOWNLOADS", "/Users/elvsevolod/Downloads
 DEFAULT_KAF_EPID_DIR = Path(
     os.getenv("KAF_EPID", "/Users/elvsevolod/Desktop/Проект для АГМУ/Каф_эпид")
 )
+DEFAULT_REPO_THEME_FILES_DIR = Path(__file__).resolve().parents[3] / "theme_files"
+DEFAULT_THEME_FILES_DIR = Path(
+    os.getenv(
+        "THEME_FILES",
+        "/theme_files" if Path("/theme_files").exists() else str(DEFAULT_REPO_THEME_FILES_DIR),
+    )
+)
 DEFAULT_UPLOAD_CONCURRENCY = int(os.getenv("RAG_SOURCE_MANIFEST_UPLOAD_CONCURRENCY", "4"))
 
 CONTENT_TYPES = {
@@ -57,10 +64,17 @@ async def sync_source_manifest(
     manifest_path: Path = DEFAULT_MANIFEST_PATH,
     downloads_dir: Path = DEFAULT_DOWNLOADS_DIR,
     kaf_epid_dir: Path = DEFAULT_KAF_EPID_DIR,
+    theme_files_dir: Path = DEFAULT_THEME_FILES_DIR,
     upload_concurrency: int = DEFAULT_UPLOAD_CONCURRENCY,
+    reset_existing: bool = False,
     dry_run: bool = False,
 ) -> SyncResult:
-    entries = load_source_entries(manifest_path, downloads_dir=downloads_dir, kaf_epid_dir=kaf_epid_dir)
+    entries = load_source_entries(
+        manifest_path,
+        downloads_dir=downloads_dir,
+        kaf_epid_dir=kaf_epid_dir,
+        theme_files_dir=theme_files_dir,
+    )
     validate_entries(entries)
 
     unique_uploads = _unique_entries_by_filename(entries)
@@ -82,7 +96,7 @@ async def sync_source_manifest(
         )
 
     await _upload_entries_to_s3(unique_uploads, concurrency=upload_concurrency)
-    created_files, updated_files, linked_files = await _sync_entries_to_sql(entries)
+    created_files, updated_files, linked_files = await _sync_entries_to_sql(entries, reset_existing=reset_existing)
     result = SyncResult(
         total_sources=len(entries),
         uploaded_objects=len(unique_uploads),
@@ -106,6 +120,7 @@ def load_source_entries(
     manifest_path: Path,
     downloads_dir: Path = DEFAULT_DOWNLOADS_DIR,
     kaf_epid_dir: Path = DEFAULT_KAF_EPID_DIR,
+    theme_files_dir: Path = DEFAULT_THEME_FILES_DIR,
 ) -> list[SourceEntry]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     raw_sources = manifest.get("sources")
@@ -113,7 +128,12 @@ def load_source_entries(
         raise ValueError("source_manifest must contain a 'sources' list")
 
     entries = [
-        _source_entry(raw_source, downloads_dir=downloads_dir, kaf_epid_dir=kaf_epid_dir)
+        _source_entry(
+            raw_source,
+            downloads_dir=downloads_dir,
+            kaf_epid_dir=kaf_epid_dir,
+            theme_files_dir=theme_files_dir,
+        )
         for raw_source in raw_sources
     ]
     _validate_unique_manifest_keys(entries)
@@ -132,7 +152,12 @@ def validate_entries(entries: list[SourceEntry]) -> None:
         raise ValueError(f"Source manifest contains unsupported file extensions:\n{formatted}")
 
 
-def _source_entry(raw_source: dict[str, Any], downloads_dir: Path, kaf_epid_dir: Path) -> SourceEntry:
+def _source_entry(
+    raw_source: dict[str, Any],
+    downloads_dir: Path,
+    kaf_epid_dir: Path,
+    theme_files_dir: Path,
+) -> SourceEntry:
     try:
         theme_order = int(raw_source["theme_order"])
         theme_title = str(raw_source["theme_title"]).strip()
@@ -140,7 +165,12 @@ def _source_entry(raw_source: dict[str, Any], downloads_dir: Path, kaf_epid_dir:
     except KeyError as exc:
         raise ValueError(f"Source manifest entry is missing required field: {exc.args[0]}") from exc
 
-    source_path = _resolve_manifest_path(raw_path, downloads_dir=downloads_dir, kaf_epid_dir=kaf_epid_dir)
+    source_path = _resolve_manifest_path(
+        raw_path,
+        downloads_dir=downloads_dir,
+        kaf_epid_dir=kaf_epid_dir,
+        theme_files_dir=theme_files_dir,
+    )
     filename = str(raw_source.get("filename") or _to_ascii_filename(source_path.name)).strip()
     if not filename:
         raise ValueError(f"Source manifest entry has an empty filename: {raw_source}")
@@ -155,8 +185,12 @@ def _source_entry(raw_source: dict[str, Any], downloads_dir: Path, kaf_epid_dir:
     )
 
 
-def _resolve_manifest_path(raw_path: str, downloads_dir: Path, kaf_epid_dir: Path) -> Path:
-    path = raw_path.replace("${DOWNLOADS}", str(downloads_dir)).replace("${KAF_EPID}", str(kaf_epid_dir))
+def _resolve_manifest_path(raw_path: str, downloads_dir: Path, kaf_epid_dir: Path, theme_files_dir: Path) -> Path:
+    path = (
+        raw_path.replace("${DOWNLOADS}", str(downloads_dir))
+        .replace("${KAF_EPID}", str(kaf_epid_dir))
+        .replace("${THEME_FILES}", str(theme_files_dir))
+    )
     resolved = Path(os.path.expandvars(path)).expanduser()
     if resolved.exists():
         return resolved
@@ -233,7 +267,7 @@ async def _upload_entry_to_s3(s3_client: Any, entry: SourceEntry, semaphore: asy
         logger.info("Uploaded source object: %s <- %s", entry.filename, entry.source_path)
 
 
-async def _sync_entries_to_sql(entries: list[SourceEntry]) -> tuple[int, int, int]:
+async def _sync_entries_to_sql(entries: list[SourceEntry], reset_existing: bool) -> tuple[int, int, int]:
     engine = create_async_engine(config.postgres.db_url, echo=False)
     created_files = 0
     updated_files = 0
@@ -244,8 +278,11 @@ async def _sync_entries_to_sql(entries: list[SourceEntry]) -> tuple[int, int, in
                 theme_id = await _ensure_theme(connection, entry.theme_order, entry.theme_title)
                 file_id = await _find_file_for_theme(connection, theme_id, entry.filename)
                 if file_id:
-                    await _reset_existing_file(connection, file_id, entry)
-                    updated_files += 1
+                    if reset_existing:
+                        await _reset_existing_file(connection, file_id, entry)
+                        updated_files += 1
+                    else:
+                        await _update_existing_file_metadata(connection, file_id, entry)
                 else:
                     file_id = str(uuid.uuid4())
                     await _insert_file(connection, file_id, entry)
@@ -264,22 +301,26 @@ async def _ensure_theme(connection: Any, theme_order: int, theme_title: str) -> 
             """
             SELECT theme_id, title
             FROM theme
-            WHERE theme_order = :theme_order
-            ORDER BY theme_order ASC
+            WHERE title = :theme_title
+            ORDER BY theme_order ASC, theme_id ASC
             LIMIT 1
             """
         ),
-        {"theme_order": theme_order},
+        {"theme_title": theme_title},
     )
     row = result.mappings().first()
     if row:
-        if row["title"] != theme_title:
-            logger.warning(
-                "Manifest block %d title differs from SQL theme title: manifest='%s' sql='%s'",
-                theme_order,
-                theme_title,
-                row["title"],
-            )
+        await connection.execute(
+            text(
+                """
+                UPDATE theme
+                SET theme_order = :theme_order
+                WHERE theme_id = CAST(:theme_id AS uuid)
+                  AND theme_order IS DISTINCT FROM :theme_order
+                """
+            ),
+            {"theme_id": str(row["theme_id"]), "theme_order": theme_order},
+        )
         return str(row["theme_id"])
 
     theme_id = str(uuid.uuid4())
@@ -326,6 +367,20 @@ async def _reset_existing_file(connection: Any, file_id: str, entry: SourceEntry
                 indexed_chunks = 0,
                 indexed_at = NULL
             WHERE file_id = CAST(:file_id AS uuid)
+            """
+        ),
+        {"file_id": file_id, "content_type": entry.content_type},
+    )
+
+
+async def _update_existing_file_metadata(connection: Any, file_id: str, entry: SourceEntry) -> None:
+    await connection.execute(
+        text(
+            """
+            UPDATE file
+            SET content_type = :content_type
+            WHERE file_id = CAST(:file_id AS uuid)
+              AND content_type IS DISTINCT FROM :content_type
             """
         ),
         {"file_id": file_id, "content_type": entry.content_type},
@@ -415,6 +470,12 @@ def main() -> None:
         help="Directory used for ${KAF_EPID} manifest paths",
     )
     parser.add_argument(
+        "--theme-files-dir",
+        type=Path,
+        default=DEFAULT_THEME_FILES_DIR,
+        help="Directory used for ${THEME_FILES} manifest paths",
+    )
+    parser.add_argument(
         "--upload-concurrency",
         type=int,
         default=DEFAULT_UPLOAD_CONCURRENCY,
@@ -425,6 +486,11 @@ def main() -> None:
         action="store_true",
         help="Validate and print the manifest without uploading to MinIO or changing SQL",
     )
+    parser.add_argument(
+        "--reset-existing",
+        action="store_true",
+        help="Reset existing source files back to uploaded so a later reindex can rebuild them",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
@@ -433,7 +499,9 @@ def main() -> None:
             manifest_path=args.manifest,
             downloads_dir=args.downloads_dir,
             kaf_epid_dir=args.kaf_epid_dir,
+            theme_files_dir=args.theme_files_dir,
             upload_concurrency=args.upload_concurrency,
+            reset_existing=args.reset_existing,
             dry_run=args.dry_run,
         )
     )

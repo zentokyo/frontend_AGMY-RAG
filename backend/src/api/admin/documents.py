@@ -12,6 +12,7 @@ from dishka import FromDishka
 from dishka.integrations.fastapi import inject
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from unidecode import unidecode
@@ -50,6 +51,11 @@ ALLOWED_EXTS = {".pdf", ".txt", ".docx"}
 MAX_SIZE_BYTES = 50 * 1024 * 1024
 UPLOAD_STORAGE_CONCURRENCY = int(os.getenv("RAG_UPLOAD_STORAGE_CONCURRENCY", "4"))
 
+
+class CreateDocumentBlockRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+
 admin_documents_router = APIRouter(
     prefix="/internal/admin/documents",
     tags=["Internal Admin Documents"],
@@ -72,10 +78,9 @@ async def get_admin_document_stats_handler(
         text(
             """
             SELECT
-              COUNT(DISTINCT t.theme_id)::int AS total_themes,
-              COUNT(tf.file_id)::int          AS total_files
-            FROM theme t
-            LEFT JOIN theme_file tf ON tf.theme_id = t.theme_id
+              (SELECT COUNT(*)::int FROM course_block) AS total_blocks,
+              (SELECT COUNT(*)::int FROM theme) AS total_themes,
+              (SELECT COUNT(*)::int FROM theme_file) AS total_files
             """
         )
     )
@@ -94,6 +99,217 @@ async def get_admin_documents_handler(
             SELECT
               t.theme_id AS id,
               t.title,
+              t.theme_order,
+              bt.id AS topic_id,
+              bt.topic_order,
+              cb.id AS block_id,
+              cb.title AS block_title,
+              cb.block_order,
+              f.file_id,
+              f.filename,
+              f.content_type,
+              f.ingest_status,
+              f.ingest_error,
+              f.indexed_chunks,
+              f.indexed_at,
+              ij.job_id,
+              ij.job_type,
+              ij.status AS job_status,
+              ij.stage AS job_stage,
+              ij.progress_percent AS job_progress_percent,
+              ij.attempt AS job_attempt,
+              ij.error AS job_error,
+              ij.result AS job_result,
+              ij.started_at AS job_started_at,
+              ij.finished_at AS job_finished_at,
+              ij.created_at AS job_created_at,
+              ij.updated_at AS job_updated_at
+            FROM theme t
+            LEFT JOIN block_topic bt ON bt.theme_id = t.theme_id
+            LEFT JOIN course_block cb ON cb.id = bt.block_id
+            LEFT JOIN theme_file tf ON tf.theme_id = t.theme_id
+            LEFT JOIN file f ON f.file_id = tf.file_id
+            LEFT JOIN LATERAL (
+              SELECT
+                job_id,
+                job_type,
+                status,
+                stage,
+                progress_percent,
+                attempt,
+                error,
+                result,
+                started_at,
+                finished_at,
+                created_at,
+                updated_at
+              FROM ingest_job
+              WHERE file_id = f.file_id
+              ORDER BY created_at DESC
+              LIMIT 1
+            ) ij ON TRUE
+            ORDER BY cb.block_order ASC NULLS LAST,
+                     bt.topic_order ASC NULLS LAST,
+                     t.theme_order ASC,
+                     f.filename ASC
+            """
+        )
+    )
+
+    documents: dict[str, dict] = {}
+    for row in result.mappings().all():
+        theme_id = str(row["id"])
+        document = documents.setdefault(
+            theme_id,
+            {
+                "id": theme_id,
+                "title": row["title"],
+                "theme_order": row["theme_order"],
+                "topic_id": row["topic_id"],
+                "topic_order": row["topic_order"],
+                "block_id": row["block_id"],
+                "block_title": row["block_title"],
+                "block_order": row["block_order"],
+                "files": [],
+                "file_count": 0,
+            },
+        )
+        if row["file_id"]:
+            document["files"].append(
+                {
+                    "file_id": str(row["file_id"]),
+                    "filename": row["filename"],
+                    "content_type": row["content_type"],
+                    "ingest_status": row["ingest_status"],
+                    "ingest_error": row["ingest_error"],
+                    "indexed_chunks": row["indexed_chunks"],
+                    "indexed_at": row["indexed_at"].isoformat() if row["indexed_at"] else None,
+                    "latest_job": _job_response(row),
+                }
+            )
+            document["file_count"] += 1
+
+    return list(documents.values())
+
+
+@admin_documents_router.get("/blocks")
+@public_admin_documents_router.get("/blocks")
+@inject
+async def get_admin_document_blocks_handler(
+    session: FromDishka[AsyncSession],
+) -> list[dict]:
+    result = await session.execute(
+        text(
+            """
+            SELECT
+              cb.id AS block_id,
+              cb.title AS block_title,
+              cb.description AS block_description,
+              cb.block_order,
+              bt.id AS topic_id,
+              bt.title AS topic_title,
+              bt.topic_order,
+              t.theme_id,
+              t.title AS theme_title,
+              t.theme_order,
+              f.file_id,
+              f.filename,
+              f.content_type,
+              f.ingest_status,
+              f.ingest_error,
+              f.indexed_chunks,
+              f.indexed_at,
+              ij.job_id,
+              ij.job_type,
+              ij.status AS job_status,
+              ij.stage AS job_stage,
+              ij.progress_percent AS job_progress_percent,
+              ij.attempt AS job_attempt,
+              ij.error AS job_error,
+              ij.result AS job_result,
+              ij.started_at AS job_started_at,
+              ij.finished_at AS job_finished_at,
+              ij.created_at AS job_created_at,
+              ij.updated_at AS job_updated_at
+            FROM course_block cb
+            LEFT JOIN block_topic bt ON bt.block_id = cb.id
+            LEFT JOIN theme t ON t.theme_id = bt.theme_id
+            LEFT JOIN theme_file tf ON tf.theme_id = t.theme_id
+            LEFT JOIN file f ON f.file_id = tf.file_id
+            LEFT JOIN LATERAL (
+              SELECT
+                job_id,
+                job_type,
+                status,
+                stage,
+                progress_percent,
+                attempt,
+                error,
+                result,
+                started_at,
+                finished_at,
+                created_at,
+                updated_at
+              FROM ingest_job
+              WHERE file_id = f.file_id
+              ORDER BY created_at DESC
+              LIMIT 1
+            ) ij ON TRUE
+            ORDER BY cb.block_order ASC,
+                     bt.topic_order ASC NULLS LAST,
+                     t.theme_order ASC NULLS LAST,
+                     f.filename ASC
+            """
+        )
+    )
+
+    blocks: dict[int, dict] = {}
+    for row in result.mappings().all():
+        block_id = int(row["block_id"])
+        block = blocks.setdefault(
+            block_id,
+            {
+                "id": block_id,
+                "title": row["block_title"],
+                "description": row["block_description"],
+                "block_order": row["block_order"],
+                "themes": [],
+                "theme_count": 0,
+                "file_count": 0,
+            },
+        )
+        if not row["theme_id"]:
+            continue
+
+        theme_id = str(row["theme_id"])
+        theme = next((item for item in block["themes"] if item["id"] == theme_id), None)
+        if theme is None:
+            theme = {
+                "id": theme_id,
+                "title": row["theme_title"] or row["topic_title"],
+                "theme_order": row["theme_order"],
+                "topic_id": row["topic_id"],
+                "topic_order": row["topic_order"],
+                "block_id": block_id,
+                "block_title": row["block_title"],
+                "block_order": row["block_order"],
+                "files": [],
+                "file_count": 0,
+            }
+            block["themes"].append(theme)
+            block["theme_count"] += 1
+
+        if row["file_id"]:
+            theme["files"].append(_file_response_from_row(row))
+            theme["file_count"] += 1
+            block["file_count"] += 1
+
+    orphan_result = await session.execute(
+        text(
+            """
+            SELECT
+              t.theme_id,
+              t.title AS theme_title,
               t.theme_order,
               f.file_id,
               f.filename,
@@ -136,40 +352,101 @@ async def get_admin_documents_handler(
               ORDER BY created_at DESC
               LIMIT 1
             ) ij ON TRUE
-            ORDER BY t.theme_order ASC, f.filename ASC
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM block_topic bt
+              WHERE bt.theme_id = t.theme_id
+            )
+            ORDER BY t.theme_order ASC, t.title ASC, f.filename ASC
             """
         )
     )
-
-    documents: dict[str, dict] = {}
-    for row in result.mappings().all():
-        theme_id = str(row["id"])
-        document = documents.setdefault(
-            theme_id,
-            {
-                "id": theme_id,
-                "title": row["title"],
-                "theme_order": row["theme_order"],
-                "files": [],
-                "file_count": 0,
-            },
+    orphan_rows = orphan_result.mappings().all()
+    if orphan_rows:
+        unassigned_block = next(
+            (block for block in blocks.values() if block["title"] == "Нераспределённые темы"),
+            None,
         )
-        if row["file_id"]:
-            document["files"].append(
-                {
-                    "file_id": str(row["file_id"]),
-                    "filename": row["filename"],
-                    "content_type": row["content_type"],
-                    "ingest_status": row["ingest_status"],
-                    "ingest_error": row["ingest_error"],
-                    "indexed_chunks": row["indexed_chunks"],
-                    "indexed_at": row["indexed_at"].isoformat() if row["indexed_at"] else None,
-                    "latest_job": _job_response(row),
-                }
-            )
-            document["file_count"] += 1
+        if unassigned_block is None:
+            unassigned_block = {
+                "id": None,
+                "title": "Нераспределённые темы",
+                "description": "Темы без привязки к блоку",
+                "block_order": None,
+                "themes": [],
+                "theme_count": 0,
+                "file_count": 0,
+            }
+            blocks[-1] = unassigned_block
 
-    return list(documents.values())
+        for row in orphan_rows:
+            theme_id = str(row["theme_id"])
+            theme = next((item for item in unassigned_block["themes"] if item["id"] == theme_id), None)
+            if theme is None:
+                theme = {
+                    "id": theme_id,
+                    "title": row["theme_title"],
+                    "theme_order": row["theme_order"],
+                    "topic_id": None,
+                    "topic_order": len(unassigned_block["themes"]) + 1,
+                    "block_id": unassigned_block["id"],
+                    "block_title": unassigned_block["title"],
+                    "block_order": unassigned_block["block_order"],
+                    "files": [],
+                    "file_count": 0,
+                }
+                unassigned_block["themes"].append(theme)
+                unassigned_block["theme_count"] += 1
+
+            if row["file_id"]:
+                theme["files"].append(_file_response_from_row(row))
+                theme["file_count"] += 1
+                unassigned_block["file_count"] += 1
+
+    return list(blocks.values())
+
+
+@admin_documents_router.post("/blocks")
+@public_admin_documents_router.post("/blocks")
+@inject
+async def create_admin_document_block_handler(
+    schema: CreateDocumentBlockRequest,
+    session: FromDishka[AsyncSession],
+):
+    title_value = schema.title.strip() if schema.title else ""
+    description_value = schema.description.strip() if schema.description and schema.description.strip() else None
+    if not title_value:
+        return JSONResponse(status_code=400, content={"error": "title is required"})
+
+    async with session.begin():
+        order_result = await session.execute(
+            text("SELECT COALESCE(MAX(block_order), 0) AS max_order FROM course_block")
+        )
+        next_order = int(order_result.mappings().first()["max_order"]) + 1
+        result = await session.execute(
+            text(
+                """
+                INSERT INTO course_block (title, description, block_order)
+                VALUES (:title, :description, :block_order)
+                RETURNING id, title, description, block_order
+                """
+            ),
+            {"title": title_value, "description": description_value, "block_order": next_order},
+        )
+        row = result.mappings().first()
+
+    return JSONResponse(
+        status_code=201,
+        content={
+            "id": row["id"],
+            "title": row["title"],
+            "description": row["description"],
+            "block_order": row["block_order"],
+            "themes": [],
+            "theme_count": 0,
+            "file_count": 0,
+        },
+    )
 
 
 @admin_documents_router.post("/upload")
@@ -178,21 +455,33 @@ async def get_admin_documents_handler(
 async def upload_admin_document_handler(
     session: FromDishka[AsyncSession],
     s3_client: FromDishka[AioBaseClient],
+    block_id: int | None = Form(default=None),
     title: str | None = Form(default=None),
     files: list[UploadFile] | None = File(default=None),
 ):
     title_value = title.strip() if title else ""
     if not title_value:
         return JSONResponse(status_code=400, content={"error": "title is required"})
+    if not block_id:
+        return JSONResponse(status_code=400, content={"error": "block_id is required"})
 
     prepared_files = await _prepare_files(files)
     if isinstance(prepared_files, JSONResponse):
         return prepared_files
 
     async with session.begin():
+        block_result = await session.execute(
+            text("SELECT id, title, block_order FROM course_block WHERE id = :block_id"),
+            {"block_id": block_id},
+        )
+        block = block_result.mappings().first()
+        if not block:
+            return JSONResponse(status_code=404, content={"error": "Block not found"})
+
         order_result = await session.execute(text("SELECT COALESCE(MAX(theme_order), 0) AS max_order FROM theme"))
         next_order = int(order_result.mappings().first()["max_order"]) + 1
         theme_id = uuid4()
+        exam_theme_id = uuid4()
 
         await session.execute(
             text(
@@ -204,9 +493,13 @@ async def upload_admin_document_handler(
             {"theme_id": theme_id, "title": title_value, "theme_order": next_order},
         )
 
-        exam_order_result = await session.execute(
-            text("SELECT COALESCE(MAX(exam_theme_order), 0) AS max_order FROM exam_theme")
+        topic_order_result = await session.execute(
+            text("SELECT COALESCE(MAX(topic_order), 0) AS max_order FROM block_topic WHERE block_id = :block_id"),
+            {"block_id": block_id},
         )
+        next_topic_order = int(topic_order_result.mappings().first()["max_order"]) + 1
+
+        exam_order_result = await session.execute(text("SELECT COALESCE(MAX(exam_theme_order), 0) AS max_order FROM exam_theme"))
         exam_next_order = int(exam_order_result.mappings().first()["max_order"]) + 1
         await session.execute(
             text(
@@ -215,8 +508,25 @@ async def upload_admin_document_handler(
                 VALUES (:exam_theme_id, :title, :exam_theme_order)
                 """
             ),
-            {"exam_theme_id": uuid4(), "title": title_value, "exam_theme_order": exam_next_order},
+            {"exam_theme_id": exam_theme_id, "title": title_value, "exam_theme_order": exam_next_order},
         )
+        topic_result = await session.execute(
+            text(
+                """
+                INSERT INTO block_topic (block_id, title, topic_order, exam_theme_id, theme_id)
+                VALUES (:block_id, :title, :topic_order, :exam_theme_id, :theme_id)
+                RETURNING id, topic_order
+                """
+            ),
+            {
+                "block_id": block_id,
+                "title": title_value,
+                "topic_order": next_topic_order,
+                "exam_theme_id": exam_theme_id,
+                "theme_id": theme_id,
+            },
+        )
+        topic = topic_result.mappings().first()
 
         for prepared in prepared_files:
             prepared["file_id"] = uuid4()
@@ -262,6 +572,11 @@ async def upload_admin_document_handler(
             "id": str(theme_id),
             "title": title_value,
             "theme_order": next_order,
+            "topic_id": topic["id"],
+            "topic_order": topic["topic_order"],
+            "block_id": block["id"],
+            "block_title": block["title"],
+            "block_order": block["block_order"],
             "files": [
                 _file_response(prepared, ingest_status="queued")
                 for prepared in prepared_files
@@ -847,6 +1162,7 @@ async def delete_admin_document_handler(
         files = [dict(row) for row in file_result.mappings().all()]
 
         await session.execute(text("DELETE FROM theme_file WHERE theme_id = :theme_id"), {"theme_id": theme_id})
+        await session.execute(text("DELETE FROM block_topic WHERE theme_id = :theme_id"), {"theme_id": theme_id})
         for file in files:
             await session.execute(
                 text("DELETE FROM file WHERE file_id = :file_id"),

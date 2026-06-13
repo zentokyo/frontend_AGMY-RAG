@@ -89,6 +89,8 @@ services:
         condition: service_started
       assistant-file-storage:
         condition: service_started
+      create-buckets:
+        condition: service_completed_successfully
     environment:
       QDRANT_URL: http://assistant-vector-db:6333
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-assistant_knowledge}
@@ -103,6 +105,9 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5174,http://127.0.0.1:5174}
       KB_PATH: /app/src/core/rag/knowledge_base
+      THEME_FILES: /theme_files
+    volumes:
+      - ./theme_files:/theme_files:ro
     ports:
       - '${FASTAPI_PUBLISHED_PORT:-8001}:8000'
 
@@ -117,6 +122,8 @@ services:
       - path: .env
         required: false
     depends_on:
+      assistant_backend:
+        condition: service_started
       assistant_db:
         condition: service_healthy
       assistant-vector-db:
@@ -130,7 +137,7 @@ services:
       GIGACHAT_EMBEDDINGS_MODEL: ${GIGACHAT_EMBEDDINGS_MODEL:-EmbeddingsGigaR}
       RAG_INGEST_MAX_ATTEMPTS: ${RAG_INGEST_MAX_ATTEMPTS:-3}
       KB_PATH: /app/src/core/rag/knowledge_base
-    command: ["sh", "-c", "python -m src.cli.migrate && exec python -m src.cli.ingest_worker"]
+    command: ["sh", "-c", "exec python -m src.cli.ingest_worker"]
 
   # ── Telegram-бот (устаревает, будет удалён) ───────────────────────────────
   assistant_bot:

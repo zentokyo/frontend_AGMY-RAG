@@ -13,7 +13,7 @@
     "install:all": "npm install && npm --prefix apps/admin-frontend install && npm --prefix apps/chat-frontend install && npm --prefix apps/web-frontend install",
     "db:migrate": "docker compose run --rm assistant_backend python -m src.cli.migrate",
     "db:seed": "docker compose run --rm assistant_backend python -m src.cli.seed_admin",
-    "kb:sync-sources": "docker compose run --rm -v \"/Users/elvsevolod/Downloads:/host-downloads:ro\" -v \"/Users/elvsevolod/Desktop/Проект для АГМУ/Каф_эпид:/host-kaf-epid:ro\" -e DOWNLOADS=/host-downloads -e KAF_EPID=/host-kaf-epid assistant_backend python -m src.cli.sync_source_manifest",
+    "kb:sync-sources": "docker compose run --rm assistant_backend python -m src.cli.sync_source_manifest --reset-existing",
     "kb:reindex": "docker compose run --rm assistant_backend python -m src.cli.reindex_admin_documents --blue-green --concurrency 2",
     "kb:refresh": "npm run kb:sync-sources && npm run kb:reindex && npm run test:retrieval && npm run test:answers",
     "test:api": "node --test tests/api/**/*.test.js",

@@ -61,6 +61,7 @@ export default function DashboardPage() {
           icon={FolderOpen}
           label="Тем в базе знаний"
           value={docLoading ? '…' : docStats?.total_themes}
+          sub={docStats?.total_blocks ? `${docStats.total_blocks} ${pluralBlocks(docStats.total_blocks)}` : undefined}
           color="blue"
         />
         <StatCard
@@ -103,7 +104,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-slate-400">{doc.file_count} файлов</p>
                   </div>
                 </div>
-                <span className="badge bg-blue-50 text-blue-700">Тема #{doc.theme_order}</span>
+                <span className="badge bg-blue-50 text-blue-700">{doc.block_title || `Тема #${doc.theme_order}`}</span>
               </li>
             ))
           )}
@@ -128,4 +129,10 @@ export default function DashboardPage() {
       )}
     </div>
   )
+}
+
+function pluralBlocks(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'блок'
+  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return 'блока'
+  return 'блоков'
 }
