@@ -6,16 +6,6 @@ import { Toaster } from 'react-hot-toast'
 import App from './App.jsx'
 import './index.css'
 
-// Theme initialization
-if (
-  localStorage.getItem('theme') === 'dark' ||
-  (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
-) {
-  document.documentElement.classList.add('dark')
-} else {
-  document.documentElement.classList.remove('dark')
-}
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
