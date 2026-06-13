@@ -103,69 +103,85 @@ export default function TopicPage() {
         attempts={topic.attempts}
       />
 
-      <div className="card p-4 space-y-3 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-        <h2 className="font-medium text-slate-900 dark:text-slate-100">Учебные материалы</h2>
-        {materials.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Материалы для этой темы не добавлены.</p>
-        ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-            {materials.map((f) => (
-              <li key={f.file_id} className="flex items-center gap-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg px-2 transition-colors">
-                <FileText size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
-                <span className="flex-1 text-sm text-slate-700 dark:text-slate-300 truncate">{f.filename}</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleFileAction(f.filename, 'view')}
-                    className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-500 dark:hover:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
-                    title="Просмотреть"
-                  >
-                    <Eye size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleFileAction(f.filename, 'download')}
-                    className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-500 dark:hover:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
-                    title="Скачать"
-                  >
-                    <Download size={16} />
-                  </button>
-                  <span className="text-xs text-slate-400 dark:text-slate-500 font-medium select-none bg-slate-100 dark:bg-slate-850 px-1.5 py-0.5 rounded">PDF</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Start exam */}
-      <div className="card p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-medium text-slate-900">Тест по теме</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              {question_count > 0
-                ? `${Math.min(3, question_count)} вопроса · порог прохождения 70%`
-                : 'Вопросы к этой теме ещё не добавлены'}
+      {!topic.is_unlocked ? (
+        <div className="card p-6 text-center space-y-4 bg-white border-slate-200">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-50 text-amber-500">
+            <XCircle size={24} />
+          </div>
+          <div className="space-y-1">
+            <h2 className="font-semibold text-slate-900">Тема заблокирована</h2>
+            <p className="text-sm text-slate-500">
+              Пройдите предыдущую тему для разблокировки доступа к материалам и тестированию.
             </p>
           </div>
-          <button
-            className="btn-primary shrink-0"
-            disabled={!topic.is_unlocked || question_count === 0 || startExamMutation.isPending}
-            onClick={() => startExamMutation.mutate()}
-          >
-            <PlayCircle size={16} className="mr-1.5 -ml-0.5" />
-            {startExamMutation.isPending
-              ? 'Запуск...'
-              : topic.user_status === 'passed'
-                ? 'Пересдать'
-                : 'Начать тест'}
-          </button>
         </div>
-        {!topic.is_unlocked && (
-          <p className="mt-2 text-xs text-amber-600">
-            Пройдите предыдущую тему для разблокировки.
-          </p>
-        )}
-      </div>
+      ) : (
+        <>
+          <div className="card p-4 space-y-3 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+            <h2 className="font-medium text-slate-900 dark:text-slate-100">Учебные материалы</h2>
+            {materials.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Материалы для этой темы не добавлены.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {materials.map((f) => (
+                  <li key={f.file_id} className="flex items-center gap-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg px-2 transition-colors">
+                    <FileText size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                    <span className="flex-1 text-sm text-slate-700 dark:text-slate-300 truncate">{f.filename}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleFileAction(f.filename, 'view')}
+                        className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-500 dark:hover:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
+                        title="Просмотреть"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleFileAction(f.filename, 'download')}
+                        className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-500 dark:hover:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
+                        title="Скачать"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <span className="text-xs text-slate-400 dark:text-slate-500 font-medium select-none bg-slate-100 dark:bg-slate-850 px-1.5 py-0.5 rounded">PDF</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Start exam */}
+          <div className="card p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-medium text-slate-900">Тест по теме</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  {question_count > 0
+                    ? `${Math.min(3, question_count)} вопроса · порог прохождения 70%`
+                    : 'Вопросы к этой теме ещё не добавлены'}
+                </p>
+              </div>
+              <button
+                className="btn-primary shrink-0"
+                disabled={!topic.is_unlocked || question_count === 0 || startExamMutation.isPending}
+                onClick={() => startExamMutation.mutate()}
+              >
+                <PlayCircle size={16} className="mr-1.5 -ml-0.5" />
+                {startExamMutation.isPending
+                  ? 'Запуск...'
+                  : topic.user_status === 'passed'
+                    ? 'Пересдать'
+                    : 'Начать тест'}
+              </button>
+            </div>
+            {!topic.is_unlocked && (
+              <p className="mt-2 text-xs text-amber-600">
+                Пройдите предыдущую тему для разблокировки.
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

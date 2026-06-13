@@ -213,7 +213,7 @@ async def get_course_topic_handler(
     )
 
     materials = []
-    if topic_data["theme_id"]:
+    if topic_unlocked and topic_data["theme_id"]:
         materials_result = await session.execute(
             text(
                 """
