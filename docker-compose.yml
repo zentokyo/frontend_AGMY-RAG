@@ -101,7 +101,7 @@ services:
       ACCESS_TOKEN_EXPIRES: ${ACCESS_TOKEN_EXPIRES:-15m}
       REFRESH_TOKEN_EXPIRES: ${REFRESH_TOKEN_EXPIRES:-7d}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5174,http://127.0.0.1:5174}
       KB_PATH: /app/src/core/rag/knowledge_base
     ports:
       - '${FASTAPI_PUBLISHED_PORT:-8001}:8000'
@@ -145,36 +145,24 @@ services:
     depends_on:
       - assistant_backend
 
-  # ── Локальная разработка фронта админки (опционально) ────────────────────
-  admin-client-dev:
+  # ── Локальная разработка фронтов: чат /, админка /admin ─────────────────
+  web-client-dev:
     profiles: ['dev']
     build:
-      context: ./apps/admin-frontend
-      dockerfile: Dockerfile.dev
-    restart: unless-stopped
-    ports:
-      - '5173:5173'
-    volumes:
-      - ./apps/admin-frontend:/app
-      - /app/node_modules
-    environment:
-      VITE_API_BASE: http://127.0.0.1:8001/api
-    depends_on:
-      - assistant_backend
-
-  # ── Локальная разработка фронта веб-чата (опционально) ───────────────────
-  chat-client-dev:
-    profiles: ['dev']
-    build:
-      context: ./apps/chat-frontend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: apps/web-frontend/Dockerfile.dev
     restart: unless-stopped
     ports:
       - '5174:5174'
     volumes:
-      - ./apps/chat-frontend:/app
-      - /app/node_modules
+      - ./apps/admin-frontend:/workspace/apps/admin-frontend
+      - /workspace/apps/admin-frontend/node_modules
+      - ./apps/chat-frontend:/workspace/apps/chat-frontend
+      - /workspace/apps/chat-frontend/node_modules
+      - ./apps/web-frontend:/workspace/apps/web-frontend
     environment:
+      FRONTEND_HOST: 0.0.0.0
+      FRONTEND_PORT: 5174
       VITE_API_BASE: http://127.0.0.1:8001/api
     depends_on:
       - assistant_backend

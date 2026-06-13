@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:admin\" \"npm run dev:chat\"",
+    "dev": "npm --prefix apps/web-frontend run dev",
     "dev:admin": "npm --prefix apps/admin-frontend run dev",
     "dev:chat": "npm --prefix apps/chat-frontend run dev",
     "build": "npm --prefix apps/admin-frontend run build",
     "build:chat": "npm --prefix apps/chat-frontend run build",
     "start": "npm run build && docker compose up --remove-orphans assistant_backend",
-    "install:all": "npm install && npm --prefix apps/admin-frontend install && npm --prefix apps/chat-frontend install",
+    "install:all": "npm install && npm --prefix apps/admin-frontend install && npm --prefix apps/chat-frontend install && npm --prefix apps/web-frontend install",
     "db:migrate": "docker compose run --rm assistant_backend python -m src.cli.migrate",
     "db:seed": "docker compose run --rm assistant_backend python -m src.cli.seed_admin",
     "kb:sync-sources": "docker compose run --rm -v \"/Users/elvsevolod/Downloads:/host-downloads:ro\" -v \"/Users/elvsevolod/Desktop/Проект для АГМУ/Каф_эпид:/host-kaf-epid:ro\" -e DOWNLOADS=/host-downloads -e KAF_EPID=/host-kaf-epid assistant_backend python -m src.cli.sync_source_manifest",
@@ -23,7 +23,7 @@
     "test:all": "npm run test:api && npm run build && npm run build:chat",
     "compose:up": "npm run build && docker compose up -d --build --remove-orphans",
     "compose:down": "docker compose down",
-    "compose:dev": "docker compose --profile dev up -d --build"
+    "compose:dev": "docker compose --profile dev up -d --build --remove-orphans"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

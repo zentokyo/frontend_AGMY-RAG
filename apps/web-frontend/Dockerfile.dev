@@ -1,0 +1,17 @@
+FROM node:20-alpine
+
+WORKDIR /workspace
+
+COPY apps/admin-frontend/package*.json ./apps/admin-frontend/
+RUN cd apps/admin-frontend && npm ci
+
+COPY apps/chat-frontend/package*.json ./apps/chat-frontend/
+RUN cd apps/chat-frontend && npm ci
+
+COPY apps/admin-frontend ./apps/admin-frontend
+COPY apps/chat-frontend ./apps/chat-frontend
+COPY apps/web-frontend ./apps/web-frontend
+
+EXPOSE 5174
+
+CMD ["node", "apps/web-frontend/dev-server.mjs"]

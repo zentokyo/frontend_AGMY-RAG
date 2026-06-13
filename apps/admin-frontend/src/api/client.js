@@ -2,6 +2,7 @@ import axios from 'axios'
 import useAuthStore from '../store/authStore.js'
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '/api').replace(/\/+$/, '')
+const APP_BASE = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '')
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -64,8 +65,9 @@ api.interceptors.response.use(
     } catch (err) {
       processQueue(err, null)
       useAuthStore.getState().clearAuth()
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login'
+      const loginPath = appPath('/login')
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith(loginPath)) {
+        window.location.href = loginPath
       }
       return Promise.reject(err)
     } finally {
@@ -75,3 +77,7 @@ api.interceptors.response.use(
 )
 
 export default api
+
+function appPath(path) {
+  return `${APP_BASE}${path.startsWith('/') ? path : `/${path}`}` || '/'
+}

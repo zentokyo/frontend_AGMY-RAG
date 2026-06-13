@@ -1,0 +1,9 @@
+{
+  "name": "asmu-web-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node dev-server.mjs"
+  }
+}
