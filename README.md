@@ -8,11 +8,12 @@
 - Qdrant хранит векторы базы знаний;
 - GigaChat `EmbeddingsGigaR` создаёт эмбеддинги;
 - DeepSeek оценивает ответы;
-- React/Vite используются для admin и пользовательского frontend.
+- React/Vite используются для единого frontend dev-сервера: чат на `/`,
+  admin на `/admin`.
 
 Node.js больше не используется как backend. Он нужен только как build/dev tool
-для React-приложений. Production-сборка admin frontend включается в образ
-FastAPI и раздаётся с того же origin.
+для React-приложений. В локальной разработке чат и admin запускаются одним
+контейнером `web-client-dev` на одном порту.
 
 ## Структура
 
@@ -21,6 +22,7 @@ FastAPI и раздаётся с того же origin.
 | `backend/` | FastAPI, доменная логика, Alembic, Qdrant и RAG |
 | `apps/admin-frontend/` | Административная панель |
 | `apps/chat-frontend/` | Пользовательский кабинет |
+| `apps/web-frontend/` | Единый dev-сервер для чата и admin |
 | `tests/api/` | Интеграционные тесты публичного FastAPI API |
 | `python/` | Вспомогательные Python-утилиты |
 | `converters/` | Конвертеры и legacy Telegram-бот |
@@ -28,22 +30,32 @@ FastAPI и раздаётся с того же origin.
 
 ## Быстрый запуск
 
+Основной локальный сценарий: backend и инфраструктура в Docker, оба frontend
+приложения в одном контейнере и на одном порту.
+
 Создайте окружение:
 
 ```bash
 cp .env.example .env
 ```
 
-Соберите admin frontend и запустите инфраструктуру с backend:
+Запустите полный dev-стек:
 
 ```bash
-npm run build
-docker compose up -d --build --remove-orphans assistant-vector-db assistant_db assistant-file-storage create-buckets assistant_backend
+docker compose --profile dev up -d --build --remove-orphans \
+  assistant-vector-db \
+  assistant_db \
+  assistant-file-storage \
+  create-buckets \
+  assistant_backend \
+  assistant_ingest_worker \
+  web-client-dev
 ```
 
 После запуска:
 
-- admin frontend: [http://127.0.0.1:8001](http://127.0.0.1:8001);
+- пользовательский кабинет: [http://127.0.0.1:5174](http://127.0.0.1:5174);
+- admin: [http://127.0.0.1:5174/admin](http://127.0.0.1:5174/admin);
 - FastAPI docs: [http://127.0.0.1:8001/docs](http://127.0.0.1:8001/docs);
 - Qdrant: [http://127.0.0.1:6333](http://127.0.0.1:6333);
 - MinIO console: [http://127.0.0.1:9001](http://127.0.0.1:9001).
@@ -62,18 +74,20 @@ npm run db:seed
 
 ## Frontend-разработка
 
-Сначала поднимите FastAPI на `http://127.0.0.1:8001`, затем:
+Если backend и инфраструктура уже подняты, а контейнер `web-client-dev`
+остановлен, frontend можно запускать локально без Docker:
 
 ```bash
 npm run dev
 ```
 
-Адреса на одном frontend-порту:
+`npm run dev` запускает единый frontend dev-сервер:
 
 - пользовательский кабинет: [http://127.0.0.1:5174](http://127.0.0.1:5174);
 - admin: [http://127.0.0.1:5174/admin](http://127.0.0.1:5174/admin).
 
-В Docker dev-профиле это один контейнер `web-client-dev`; внутри он разводит чат и админку по путям.
+В Docker dev-профиле то же самое делает один контейнер `web-client-dev`.
+Внутри него поднимаются два Vite-сервера, а наружу публикуется только `5174`.
 
 ## Windows
 
@@ -84,12 +98,15 @@ npm run dev
 - Репозиторий фиксирует UTF-8 и LF через `.editorconfig` и `.gitattributes`;
   в VS Code проверьте `File Encoding: UTF-8`.
 
-Запуск отдельно:
+Запуск frontend-приложений отдельно нужен только для отладки конкретного UI:
 
 ```bash
 npm run dev:admin
 npm run dev:chat
 ```
+
+В обычной работе используйте `npm run dev` или контейнер `web-client-dev`,
+иначе admin и чат снова окажутся на разных dev-портах.
 
 Production-сборки:
 
