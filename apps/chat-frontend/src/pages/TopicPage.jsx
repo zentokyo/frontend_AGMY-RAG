@@ -42,7 +42,7 @@ export default function TopicPage() {
 
   const handleFileAction = async (filename, action) => {
     try {
-      const response = await api.get(`/app/themes/files/${filename}`, {
+      const response = await api.get(`/app/files/${encodeURIComponent(filename)}`, {
         responseType: 'blob',
       })
       const contentType = response.headers['content-type'] || 'application/pdf'
