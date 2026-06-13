@@ -239,9 +239,6 @@ export default function ExamResultsPage() {
                     }
                     <p className="text-slate-700">Ваш: <span className="font-medium">{a.user_answer}</span></p>
                   </div>
-                  {a.evaluation_status !== 'pending' && a.evaluation_status !== 'evaluating' && !a.is_correct && (
-                    <p className="text-slate-500">Верный: <span className="font-medium text-green-700">{a.model_answer}</span></p>
-                  )}
                 </div>
               </div>
             ))}

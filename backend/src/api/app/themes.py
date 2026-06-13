@@ -1,14 +1,17 @@
 from uuid import UUID
 
+from aiobotocore.client import AioBaseClient
+from botocore.exceptions import ClientError
 from dishka import FromDishka
 from dishka.integrations.fastapi import inject
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.commons.internal_auth import require_internal_token
 from src.api.commons.public_auth import require_app_auth
+from src.config import config
 
 app_themes_router = APIRouter(
     prefix="/internal/app",
@@ -90,6 +93,22 @@ async def get_theme_download_metadata_handler(
         "download_type": "metadata",
         "message": "ZIP streaming will be added in the next iteration",
     }
+
+
+@public_app_themes_router.get("/files/{filename}")
+@inject
+async def download_file_handler(
+    filename: str,
+    s3_client: FromDishka[AioBaseClient],
+):
+    try:
+        response = await s3_client.get_object(Bucket=config.minio.bucket, Key=filename)
+        return StreamingResponse(
+            response["Body"],
+            media_type=response.get("ContentType", "application/octet-stream"),
+        )
+    except ClientError:
+        return JSONResponse(status_code=404, content={"error": "File not found"})
 
 
 def _json_uuid(value) -> str | None:
