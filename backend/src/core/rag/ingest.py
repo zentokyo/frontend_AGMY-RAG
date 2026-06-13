@@ -244,7 +244,7 @@ def generate_data_store(incremental: bool = False) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ingest AGMY knowledge base into Qdrant")
+    parser = argparse.ArgumentParser(description="Ingest ASMU knowledge base into Qdrant")
     parser.add_argument(
         "--incremental",
         action="store_true",

@@ -30,7 +30,7 @@ export default function LoginPage() {
         <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-lg">
           <span className="text-2xl font-bold text-white">A</span>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">AGMY RAG</h1>
+        <h1 className="text-2xl font-bold text-slate-900">ASMU RAG</h1>
         <p className="mt-1 text-sm text-slate-500">Вход в личный кабинет</p>
       </div>
       <div className="card w-full max-w-md p-8">

@@ -1,5 +1,5 @@
 """
-AGMY RAG Admin Tools - Qdrant maintenance helper.
+ASMU RAG Admin Tools - Qdrant maintenance helper.
 
 Usage:
   python admin_tools.py --action delete --file <path_or_partial_path>
@@ -50,7 +50,7 @@ def delete_chunks(client: QdrantClient, collection: str, file_identifier: str) -
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AGMY RAG Qdrant admin helper")
+    parser = argparse.ArgumentParser(description="ASMU RAG Qdrant admin helper")
     parser.add_argument("--action", required=True, choices=["delete"], help="Action to perform")
     parser.add_argument("--file", required=True, help="File path or partial source payload to match")
     parser.add_argument(

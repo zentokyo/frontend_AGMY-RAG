@@ -1,4 +1,4 @@
-# AGMY RAG — единый стек: PostgreSQL, MinIO, FastAPI, Telegram-бот и React-фронтенды
+# ASMU RAG — единый стек: PostgreSQL, MinIO, FastAPI, Telegram-бот и React-фронтенды
 # Скопируйте .env.example → .env и при необходимости поправьте секреты.
 
 services:

@@ -1,5 +1,5 @@
 """
-Клавиатуры для Telegram-бота AGMY-RAG.
+Клавиатуры для Telegram-бота ASMU-RAG.
 """
 from telegram import ReplyKeyboardMarkup
 

@@ -1,7 +1,7 @@
 {
-  "name": "agmy-web-portal",
+  "name": "asmu-web-portal",
   "version": "1.0.0",
-  "description": "AGMY RAG — пользовательский веб-портал (экзамены, теория, статистика)",
+  "description": "ASMU RAG — пользовательский веб-портал (экзамены, теория, статистика)",
   "private": true,
   "type": "module",
   "scripts": {

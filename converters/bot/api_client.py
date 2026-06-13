@@ -1,5 +1,5 @@
 """
-HTTP-клиент для взаимодействия с FastAPI бэкендом AGMY-RAG.
+HTTP-клиент для взаимодействия с FastAPI бэкендом ASMU-RAG.
 """
 import logging
 from typing import Any, Dict, Optional, Tuple, Union

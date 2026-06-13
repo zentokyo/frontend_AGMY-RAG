@@ -17,7 +17,7 @@ export default function Sidebar() {
           <span className="text-sm font-bold text-white">A</span>
         </div>
         <div>
-          <p className="text-sm font-semibold leading-none">AGMY RAG</p>
+          <p className="text-sm font-semibold leading-none">ASMU RAG</p>
           <p className="text-xs text-slate-400 mt-0.5">Admin Panel</p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-# AGMY RAG
+# ASMU RAG
 
 Медицинская образовательная платформа с единым Python backend:
 
