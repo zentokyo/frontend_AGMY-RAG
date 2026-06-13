@@ -20,6 +20,7 @@ from src.api.commons.internal_auth import require_internal_token
 from src.api.commons.public_auth import require_admin_auth
 from src.config import config
 from src.core.rag.admin_document_ingest_jobs import (
+    ACTIVE_INGEST_JOB_STATUSES,
     CANCELLED_STATUS,
     CANCELLING_STATUS,
     DEAD_LETTER_STATUS,
@@ -749,6 +750,60 @@ async def get_admin_document_file_jobs_handler(
     return [_job_response(row) for row in result.mappings().all()]
 
 
+@admin_documents_router.delete("/{theme_id}/files/{file_id}")
+@public_admin_documents_router.delete("/{theme_id}/files/{file_id}")
+@inject
+async def delete_admin_document_file_handler(
+    theme_id: UUID,
+    file_id: UUID,
+    session: FromDishka[AsyncSession],
+    s3_client: FromDishka[AioBaseClient],
+    qdrant_store: FromDishka[QdrantKnowledgeStore],
+):
+    async with session.begin():
+        row = await _load_file_with_latest_job(session, theme_id, file_id)
+        if not row:
+            return JSONResponse(status_code=404, content={"error": "File not found"})
+
+        if _is_active_file(row):
+            return JSONResponse(
+                status_code=409,
+                content={"error": "Файл сейчас индексируется. Поставьте индексацию на паузу или отмените её перед удалением."},
+            )
+
+        filename = row["filename"]
+        await session.execute(
+            text(
+                """
+                DELETE FROM theme_file
+                WHERE theme_id = :theme_id
+                  AND file_id = :file_id
+                """
+            ),
+            {"theme_id": theme_id, "file_id": file_id},
+        )
+
+        link_count_result = await session.execute(
+            text("SELECT COUNT(*) AS count FROM theme_file WHERE file_id = :file_id"),
+            {"file_id": file_id},
+        )
+        should_delete_file = int(link_count_result.mappings().first()["count"]) == 0
+        if should_delete_file:
+            await session.execute(
+                text("DELETE FROM file WHERE file_id = :file_id"),
+                {"file_id": file_id},
+            )
+
+    if should_delete_file:
+        await _delete_from_s3(s3_client, filename)
+        try:
+            await to_thread.run_sync(qdrant_store.delete_by_metadata, "file_id", str(file_id))
+        except Exception as exc:
+            logger.error("Failed to delete Qdrant chunks for file %s: %s", file_id, exc)
+
+    return {"message": "File deleted", "file_id": str(file_id)}
+
+
 @admin_documents_router.delete("/{theme_id}")
 @public_admin_documents_router.delete("/{theme_id}")
 @inject
@@ -765,6 +820,18 @@ async def delete_admin_document_handler(
         )
         if not theme_result.mappings().first():
             return JSONResponse(status_code=404, content={"error": "Theme not found"})
+
+        question_count_result = await session.execute(
+            text("SELECT COUNT(*) AS count FROM question WHERE theme_id = :theme_id"),
+            {"theme_id": theme_id},
+        )
+        if int(question_count_result.mappings().first()["count"]) > 0:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "К теме привязаны вопросы. Удалите файлы по отдельности или сначала удалите связанные вопросы."
+                },
+            )
 
         file_result = await session.execute(
             text(
@@ -969,6 +1036,12 @@ def _file_response_from_row(row) -> dict:
         "indexed_at": row["indexed_at"].isoformat() if row["indexed_at"] else None,
         "latest_job": _job_response(row),
     }
+
+
+def _is_active_file(row) -> bool:
+    if row.get("job_status") in ACTIVE_INGEST_JOB_STATUSES:
+        return True
+    return row.get("ingest_status") in {"queued", "indexing", "pausing", "cancelling"}
 
 
 def _file_response(

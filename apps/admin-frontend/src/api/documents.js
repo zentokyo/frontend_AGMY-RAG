@@ -29,6 +29,9 @@ export const uploadDocument = (title, files, onUploadProgress) => {
 export const deleteDocument = (id) =>
   api.delete(`/documents/${id}`).then((r) => r.data)
 
+export const deleteDocumentFile = (themeId, fileId) =>
+  api.delete(`/documents/${themeId}/files/${fileId}`).then((r) => r.data)
+
 export const reindexFile = (themeId, fileId) =>
   api.post(`/documents/${themeId}/files/${fileId}/reindex`).then((r) => r.data)
 

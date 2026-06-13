@@ -74,20 +74,23 @@ async def get_admin_questions_handler(
     page: int = Query(default=1),
     limit: int = Query(default=20),
     search: str = Query(default=""),
-    theme_id: UUID | None = Query(default=None),
-) -> dict:
+    theme_id: str | None = Query(default=None),
+):
     page = max(int(page or 1), 1)
     limit = min(max(int(limit or 20), 1), 100)
     offset = (page - 1) * limit
+    theme_uuid = _parse_optional_uuid(theme_id, "theme_id")
+    if isinstance(theme_uuid, JSONResponse):
+        return theme_uuid
 
     conditions = []
     params: dict = {}
     if search:
         conditions.append("(q.text ILIKE :search OR q.answer_text ILIKE :search)")
         params["search"] = f"%{search}%"
-    if theme_id:
+    if theme_uuid:
         conditions.append("q.theme_id = :theme_id")
-        params["theme_id"] = theme_id
+        params["theme_id"] = theme_uuid
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -269,3 +272,12 @@ def _json_uuid(value) -> str | None:
     if isinstance(value, UUID):
         return str(value)
     return str(value) if value is not None else None
+
+
+def _parse_optional_uuid(value: str | None, field_name: str) -> UUID | JSONResponse | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        return UUID(value)
+    except ValueError:
+        return JSONResponse(status_code=400, content={"error": f"{field_name} must be a valid UUID"})

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight,
-  Eye, BookOpen, Tag, AlertTriangle,
+  ChevronDown, Eye, BookOpen, Tag, AlertTriangle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -13,23 +13,40 @@ import ConfirmDialog from '../components/Modal/ConfirmDialog.jsx'
 
 const EMPTY_FORM = { text: '', answer_text: '', theme_id: '' }
 
+function ThemeSelect({ value, onChange, themes, placeholder = 'Выберите тему…', className = '', required = false }) {
+  return (
+    <div className={clsx('relative', className)}>
+      <select
+        className="select-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+      >
+        <option value="">{placeholder}</option>
+        {themes.map((t) => (
+          <option key={t.id} value={t.id}>{t.title}</option>
+        ))}
+      </select>
+      <ChevronDown
+        size={16}
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+      />
+    </div>
+  )
+}
+
 // ─── Question form (create / edit) ──────────────────────────────────────────
 function QuestionForm({ value, onChange, onSubmit, loading, submitLabel, themes }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
         <label className="label">Тема *</label>
-        <select
-          className="input"
+        <ThemeSelect
           value={value.theme_id}
-          onChange={(e) => onChange({ ...value, theme_id: e.target.value })}
+          onChange={(themeId) => onChange({ ...value, theme_id: themeId })}
+          themes={themes}
           required
-        >
-          <option value="">Выберите тему…</option>
-          {themes.map((t) => (
-            <option key={t.id} value={t.id}>{t.title}</option>
-          ))}
-        </select>
+        />
       </div>
       <div>
         <label className="label">Текст вопроса *</label>
@@ -265,16 +282,13 @@ export default function QuestionsPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
         </div>
-        <select
-          className="input w-52"
+        <ThemeSelect
+          className="w-64"
           value={themeFilter}
-          onChange={(e) => { setThemeFilter(e.target.value); setPage(1) }}
-        >
-          <option value="">Все темы</option>
-          {themesData.map((t) => (
-            <option key={t.id} value={t.id}>{t.title}</option>
-          ))}
-        </select>
+          onChange={(themeId) => { setThemeFilter(themeId); setPage(1) }}
+          themes={themesData}
+          placeholder="Все темы"
+        />
       </div>
 
       <DataTable

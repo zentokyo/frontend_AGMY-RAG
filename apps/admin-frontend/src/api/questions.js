@@ -1,7 +1,7 @@
 import api from './client.js'
 
 export const getQuestions = (params) =>
-  api.get('/questions', { params }).then((r) => r.data)
+  api.get('/questions', { params: compactParams(params) }).then((r) => r.data)
 
 export const getQuestionStats = () =>
   api.get('/questions/stats').then((r) => r.data)
@@ -18,3 +18,9 @@ export const updateQuestion = (id, data) =>
 
 export const deleteQuestion = (id) =>
   api.delete(`/questions/${id}`).then((r) => r.data)
+
+function compactParams(params = {}) {
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
+  )
+}

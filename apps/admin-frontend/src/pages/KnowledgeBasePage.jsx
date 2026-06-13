@@ -12,6 +12,7 @@ import {
   getDocuments,
   uploadDocument,
   deleteDocument,
+  deleteDocumentFile,
   addFilesToTheme,
   reindexFile,
   reindexTheme,
@@ -206,20 +207,23 @@ function ThemeRow({
   onPauseFile,
   onResumeFile,
   onCancelFile,
+  onDeleteFile,
   reindexingFileId,
   reindexingThemeId,
   ingestActionFileId,
+  deletingFileId,
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasActiveFiles = theme.files?.some(isIngestBlockedFile)
 
   return (
-    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden" data-theme-id={theme.id}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <button
           onClick={() => setExpanded((v) => !v)}
           className="text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+          aria-label={expanded ? `Свернуть тему ${theme.title}` : `Развернуть тему ${theme.title}`}
         >
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
@@ -258,7 +262,7 @@ function ThemeRow({
             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
           >
             <Trash2 size={13} />
-            Удалить
+            Удалить тему
           </button>
         </div>
       </div>
@@ -269,7 +273,7 @@ function ThemeRow({
           {theme.files?.length > 0 ? (
             <div className="space-y-1">
               {theme.files.map((f) => (
-                <div key={f.file_id} className="flex items-center gap-2 text-sm text-slate-600">
+                <div key={f.file_id} className="flex items-center gap-2 text-sm text-slate-600" data-file-id={f.file_id}>
                   <FileText size={13} className="text-slate-400 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{f.filename}</span>
                   <IngestStatusBadge file={f} />
@@ -325,6 +329,18 @@ function ThemeRow({
                       : <RefreshCw size={12} />}
                     Переиндексировать
                   </button>
+                  <button
+                    onClick={() => onDeleteFile(theme, f)}
+                    disabled={deletingFileId === f.file_id || isIngestBlockedFile(f)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-white hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    title={isIngestBlockedFile(f) ? 'Нельзя удалить файл во время активной индексации' : 'Удалить файл'}
+                    aria-label={`Удалить файл ${f.filename}`}
+                  >
+                    {deletingFileId === f.file_id
+                      ? <Loader2 size={12} className="animate-spin" />
+                      : <Trash2 size={12} />}
+                    Удалить
+                  </button>
                 </div>
               ))}
             </div>
@@ -342,11 +358,13 @@ export default function KnowledgeBasePage() {
   const qc = useQueryClient()
   const [createOpen,   setCreateOpen]   = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteFileTarget, setDeleteFileTarget] = useState(null)
   const [addFilesTo,   setAddFilesTo]   = useState(null)
   const [jobHistoryTarget, setJobHistoryTarget] = useState(null)
   const [reindexingFileId, setReindexingFileId] = useState(null)
   const [reindexingThemeId, setReindexingThemeId] = useState(null)
   const [ingestActionFileId, setIngestActionFileId] = useState(null)
+  const [deletingFileId, setDeletingFileId] = useState(null)
 
   const { data: themes = [], isLoading, refetch } = useQuery({
     queryKey: ['documents'],
@@ -376,6 +394,20 @@ export default function KnowledgeBasePage() {
       setDeleteTarget(null)
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Ошибка удаления'),
+  })
+
+  const deleteFileMutation = useMutation({
+    mutationFn: ({ themeId, fileId }) => deleteDocumentFile(themeId, fileId),
+    onMutate: ({ fileId }) => setDeletingFileId(fileId),
+    onSuccess: () => {
+      toast.success('Файл удалён')
+      qc.invalidateQueries({ queryKey: ['documents'] })
+      qc.invalidateQueries({ queryKey: ['document-stats'] })
+      qc.invalidateQueries({ queryKey: ['document-ingest-metrics'] })
+      setDeleteFileTarget(null)
+    },
+    onError: (err) => toast.error(err.response?.data?.error || 'Ошибка удаления файла'),
+    onSettled: () => setDeletingFileId(null),
   })
 
   const reindexMutation = useMutation({
@@ -510,9 +542,11 @@ export default function KnowledgeBasePage() {
               onPauseFile={(theme, file) => pauseMutation.mutate({ themeId: theme.id, fileId: file.file_id })}
               onResumeFile={(theme, file) => resumeMutation.mutate({ themeId: theme.id, fileId: file.file_id })}
               onCancelFile={(theme, file) => cancelMutation.mutate({ themeId: theme.id, fileId: file.file_id })}
+              onDeleteFile={(theme, file) => setDeleteFileTarget({ theme, file })}
               reindexingFileId={reindexingFileId}
               reindexingThemeId={reindexingThemeId}
               ingestActionFileId={ingestActionFileId}
+              deletingFileId={deletingFileId}
             />
           ))}
         </div>
@@ -538,6 +572,18 @@ export default function KnowledgeBasePage() {
         loading={deleteMutation.isPending}
         title="Удалить тему"
         message={`Удалить тему «${deleteTarget?.title}» и все ${deleteTarget?.file_count} файлов? Файлы будут удалены из хранилища.`}
+      />
+
+      <ConfirmDialog
+        open={!!deleteFileTarget}
+        onClose={() => setDeleteFileTarget(null)}
+        onConfirm={() => deleteFileMutation.mutate({
+          themeId: deleteFileTarget.theme.id,
+          fileId: deleteFileTarget.file.file_id,
+        })}
+        loading={deleteFileMutation.isPending}
+        title="Удалить файл"
+        message={`Удалить файл «${deleteFileTarget?.file.filename}» из темы «${deleteFileTarget?.theme.title}»? Файл будет удалён из хранилища и Qdrant.`}
       />
     </div>
   )
@@ -867,6 +913,7 @@ function formatSeconds(value) {
   if (value === null || value === undefined || value === '—') return '—'
   const seconds = Number(value)
   if (!Number.isFinite(seconds)) return '—'
+  if (seconds > 0 && seconds < 0.1) return '<0.1s'
   if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`
   return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`
 }
