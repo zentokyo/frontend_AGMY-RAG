@@ -17,6 +17,5 @@ RUN pip install --default-timeout=120 -r requirements.txt
 
 COPY backend/ .
 COPY theme_files/ /theme_files/
-COPY apps/admin-frontend/dist ./static/admin
 
 CMD ["sh", "-c", "python -m src.cli.migrate && python -m src.cli.sync_source_manifest && exec uvicorn --factory src.main:create_app --host 0.0.0.0 --port 8000"]

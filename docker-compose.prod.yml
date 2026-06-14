@@ -1,22 +1,17 @@
-# ASMU RAG — единый стек: PostgreSQL, MinIO, FastAPI и React-фронтенды
-# Скопируйте .env.example → .env и при необходимости поправьте секреты.
+# ASMU RAG — production stack for a single public frontend port.
+# Public surface: web-client:80. PostgreSQL, Qdrant, MinIO and FastAPI stay
+# inside the Docker network.
 
 services:
-
-  # ── Vector Database (Qdrant) ──────────────────────────────────────────────
   assistant-vector-db:
     container_name: assistant-vector-db
     image: docker.m.daocloud.io/qdrant/qdrant:v1.18.1
     restart: unless-stopped
-    ports:
-      - '6333:6333'
-      - '6334:6334'
     volumes:
       - qdrant_storage:/qdrant/storage
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
 
-  # ── PostgreSQL ────────────────────────────────────────────────────────────
   assistant_db:
     container_name: assistant_db
     image: docker.m.daocloud.io/library/postgres:17-alpine
@@ -30,22 +25,16 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-assistant}
     volumes:
       - assistant_pgdata:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PUBLISHED_PORT:-5433}:5432"
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-assistant}']
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # ── MinIO (S3-совместимое хранилище) ─────────────────────────────────────
   assistant-file-storage:
     container_name: assistant-file-storage
     image: docker.m.daocloud.io/minio/minio:latest
     restart: unless-stopped
-    ports:
-      - '${S3_PORT:-9000}:${S3_PORT:-9000}'
-      - '9001:9001'
     environment:
       MINIO_ROOT_USER: ${S3_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${S3_PASSWORD:-minioadmin}
@@ -55,7 +44,6 @@ services:
       - minio_data:/data
     entrypoint: minio server /data
 
-  # ── Инициализация MinIO (бакеты + файлы) ─────────────────────────────────
   create-buckets:
     container_name: create-buckets
     image: docker.m.daocloud.io/minio/mc
@@ -72,7 +60,6 @@ services:
       exit 0;
       "
 
-  # ── Python FastAPI: основное RAG-ядро ─────────────────────────────────────
   assistant_backend:
     container_name: assistant_backend
     build:
@@ -103,15 +90,12 @@ services:
       ACCESS_TOKEN_EXPIRES: ${ACCESS_TOKEN_EXPIRES:-15m}
       REFRESH_TOKEN_EXPIRES: ${REFRESH_TOKEN_EXPIRES:-7d}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5174,http://127.0.0.1:5174}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost}
       KB_PATH: /app/src/core/rag/knowledge_base
       THEME_FILES: /theme_files
     volumes:
       - ./theme_files:/theme_files:ro
-    ports:
-      - '${FASTAPI_PUBLISHED_PORT:-8001}:8000'
 
-  # ── Durable worker: обработка ingest_job из PostgreSQL ───────────────────
   assistant_ingest_worker:
     container_name: assistant_ingest_worker
     build:
@@ -139,41 +123,17 @@ services:
       KB_PATH: /app/src/core/rag/knowledge_base
     command: ["sh", "-c", "exec python -m src.cli.ingest_worker"]
 
-  # ── Legacy Telegram-бот: выключен по умолчанию, продакшену не нужен ───────
-  assistant_bot:
-    profiles: ['legacy-bot']
-    container_name: assistant_bot
-    build:
-      context: ./converters/bot
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    env_file:
-      - path: .env
-        required: false
-    depends_on:
-      - assistant_backend
-
-  # ── Локальная разработка фронтов: чат /, админка /admin ─────────────────
-  web-client-dev:
-    profiles: ['dev']
+  web-client:
+    container_name: web-client
     build:
       context: .
-      dockerfile: apps/web-frontend/Dockerfile.dev
+      dockerfile: apps/web-frontend/Dockerfile
     restart: unless-stopped
     ports:
-      - '5174:5174'
-    volumes:
-      - ./apps/admin-frontend:/workspace/apps/admin-frontend
-      - /workspace/apps/admin-frontend/node_modules
-      - ./apps/chat-frontend:/workspace/apps/chat-frontend
-      - /workspace/apps/chat-frontend/node_modules
-      - ./apps/web-frontend:/workspace/apps/web-frontend
-    environment:
-      FRONTEND_HOST: 0.0.0.0
-      FRONTEND_PORT: 5174
-      VITE_API_BASE: http://127.0.0.1:8001/api
+      - "${WEB_PUBLISHED_PORT:-80}:80"
     depends_on:
-      - assistant_backend
+      assistant_backend:
+        condition: service_started
 
 volumes:
   minio_data:

@@ -7,9 +7,13 @@ outputs/
 screenshots/
 design/
 designs/
+.deploy/
 
 # Env
 .env
+.env.*
+!.env.example
+!.env.production.example
 
 # Python
 .venv/

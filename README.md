@@ -22,7 +22,7 @@ Node.js больше не используется как backend. Он нуже
 | `backend/` | FastAPI, доменная логика, Alembic, Qdrant и RAG |
 | `apps/admin-frontend/` | Административная панель |
 | `apps/chat-frontend/` | Пользовательский кабинет |
-| `apps/web-frontend/` | Единый dev-сервер для чата и admin |
+| `apps/web-frontend/` | Единый frontend-контейнер: чат `/`, admin `/admin` |
 | `tests/api/` | Интеграционные тесты публичного FastAPI API |
 | `python/` | Вспомогательные Python-утилиты |
 | `converters/` | Конвертеры и legacy Telegram-бот |
@@ -119,8 +119,98 @@ npm run build
 npm run build:chat
 ```
 
-Admin build создаётся в `apps/admin-frontend/dist`. Во время Docker build он
-копируется в `/app/static/admin` внутри FastAPI-образа.
+В production оба frontend-приложения собираются в `web-client`: чат
+копируется в корень nginx, admin — в `/admin`.
+
+## Production / сервер
+
+На сервере используется отдельный `docker-compose.prod.yml`:
+
+- наружу открыт только `web-client` на `WEB_PUBLISHED_PORT` (`80` по умолчанию);
+- пользовательский кабинет доступен на `/`;
+- admin доступен на `/admin`;
+- `/api` проксируется из nginx в `assistant_backend`;
+- PostgreSQL, Qdrant, MinIO и FastAPI не публикуют порты наружу;
+- legacy `assistant_bot` не запускается и не входит в production compose.
+
+Подготовка окружения на VM:
+
+```bash
+cp .env.production.example .env
+```
+
+В `.env` обязательно замените секреты:
+
+- `POSTGRES_PASSWORD`
+- `S3_USER`
+- `S3_PASSWORD`
+- `INTERNAL_API_TOKEN`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `DEEPSEEK_API_KEY`
+- `GIGACHAT_AUTHORIZATION_KEY`
+- `SEED_ADMIN_EMAIL`
+- `SEED_ADMIN_PASSWORD`
+
+Для первого запуска по публичному IP оставьте:
+
+```bash
+CLIENT_ORIGIN=http://158.160.191.33
+COOKIE_SECURE=false
+```
+
+После подключения домена и HTTPS нужно поменять:
+
+```bash
+CLIENT_ORIGIN=https://your-domain.example
+COOKIE_SECURE=true
+```
+
+Запуск production-стека:
+
+```bash
+npm run compose:prod
+docker compose -f docker-compose.prod.yml run --rm assistant_backend python -m src.cli.seed_admin
+```
+
+Открыть приложение:
+
+- пользовательский кабинет: `http://158.160.191.33/`
+- admin: `http://158.160.191.33/admin`
+
+Legacy Telegram-бот в обычном запуске отключен. Для локальной отладки старого
+бота нужно явно включить профиль:
+
+```bash
+docker compose --profile legacy-bot up -d assistant_bot
+```
+
+### Deploy pipeline
+
+Для ручного deploy с локальной машины:
+
+```bash
+DEPLOY_HOST=158.160.191.33 \
+DEPLOY_USER=asmuadmin \
+DEPLOY_KEY=.deploy/yandex_codex_ed25519 \
+bash scripts/deploy-prod.sh
+```
+
+Скрипт синхронизирует код в `/opt/asmu-rag`, не перезаписывает серверный `.env`
+и запускает:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+```
+
+GitHub Actions workflow `.github/workflows/deploy-prod.yml` делает то же самое
+при push в `main` или вручную через `workflow_dispatch`. Для него нужны secrets:
+
+- `PROD_HOST`: публичный IP или домен VM;
+- `PROD_USER`: SSH-пользователь, например `asmuadmin`;
+- `PROD_PORT`: SSH-порт, обычно `22`;
+- `PROD_SSH_KEY`: приватный SSH-ключ, публичная часть которого добавлена в
+  `/home/asmuadmin/.ssh/authorized_keys` на VM.
 
 ## Миграции
 

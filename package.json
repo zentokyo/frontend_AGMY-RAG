@@ -24,7 +24,8 @@
     "test:all": "npm run test:api && npm run build && npm run build:chat",
     "compose:up": "npm run build && docker compose up -d --build --remove-orphans",
     "compose:down": "docker compose down",
-    "compose:dev": "docker compose --profile dev up -d --build --remove-orphans"
+    "compose:dev": "docker compose --profile dev up -d --build --remove-orphans",
+    "compose:prod": "docker compose -f docker-compose.prod.yml up -d --build --remove-orphans"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
