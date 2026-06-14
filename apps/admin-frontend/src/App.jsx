@@ -6,6 +6,7 @@ import { refreshToken, getMe } from './api/auth.js'
 import LoginPage        from './pages/LoginPage.jsx'
 import DashboardPage    from './pages/DashboardPage.jsx'
 import KnowledgeBasePage from './pages/KnowledgeBasePage.jsx'
+import ProgressPage     from './pages/ProgressPage.jsx'
 import QuestionsPage    from './pages/QuestionsPage.jsx'
 import Layout           from './components/Layout/Layout.jsx'
 
@@ -55,6 +56,7 @@ export default function App() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"      element={<DashboardPage />} />
         <Route path="knowledge-base" element={<KnowledgeBasePage />} />
+        <Route path="progress"       element={<ProgressPage />} />
         <Route path="questions"      element={<QuestionsPage />} />
       </Route>
 

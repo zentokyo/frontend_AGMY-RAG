@@ -16,3 +16,9 @@ export function formatDate(dateStr) {
     minute: '2-digit',
   }).format(new Date(dateStr))
 }
+
+export function formatPercent(value, digits = 0) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return '0%'
+  return `${(numeric * 100).toFixed(digits)}%`
+}

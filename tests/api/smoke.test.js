@@ -26,6 +26,22 @@ test('GET /api/questions requires bearer token', async () => {
   assert.equal(res.status, 401)
 })
 
+test('GET /api/progress/overview requires bearer token', async () => {
+  const res = await fetch(`${baseUrl}/api/progress/overview`)
+  assert.equal(res.status, 401)
+})
+
+test('GET /internal/admin/progress/overview returns admin course summary', async () => {
+  const res = await fetch(`${baseUrl}/internal/admin/progress/overview`, {
+    headers: { 'X-Internal-Token': process.env.INTERNAL_API_TOKEN },
+  })
+  assert.equal(res.status, 200)
+  const body = await res.json()
+  assert.equal(typeof body.summary.total_users, 'number')
+  assert.equal(Array.isArray(body.activity), true)
+  assert.equal(Array.isArray(body.by_scope), true)
+})
+
 test('GET / serves the admin SPA from FastAPI', async () => {
   const res = await fetch(`${baseUrl}/`)
   assert.equal(res.status, 200)

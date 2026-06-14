@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.api.admin.auth import admin_auth_router, public_admin_auth_router
 from src.api.admin.documents import admin_documents_router, public_admin_documents_router
+from src.api.admin.progress import admin_progress_router, public_admin_progress_router
 from src.api.admin.questions import admin_questions_router, public_admin_questions_router
 from src.api.app.answers import app_answers_router, public_app_answers_router
 from src.api.app.auth import app_auth_router, public_app_auth_router
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
 
     app.include_router(public_admin_auth_router)
     app.include_router(public_admin_documents_router)
+    app.include_router(public_admin_progress_router)
     app.include_router(public_admin_questions_router)
     app.include_router(public_app_auth_router)
     app.include_router(public_app_exams_router)
@@ -55,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(public_app_course_router)
     app.include_router(admin_auth_router)
     app.include_router(admin_documents_router)
+    app.include_router(admin_progress_router)
     app.include_router(admin_questions_router)
     app.include_router(app_stats_router)
     app.include_router(app_themes_router)

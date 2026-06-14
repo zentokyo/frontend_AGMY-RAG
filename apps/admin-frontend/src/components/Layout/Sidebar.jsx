@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, HelpCircle } from 'lucide-react'
+import { LayoutDashboard, BookOpen, HelpCircle, BarChart3 } from 'lucide-react'
 import clsx from 'clsx'
 
 const navItems = [
   { to: '/dashboard',       label: 'Дашборд',       icon: LayoutDashboard },
   { to: '/knowledge-base',  label: 'База знаний',   icon: BookOpen        },
   { to: '/questions',       label: 'База вопросов', icon: HelpCircle      },
+  { to: '/progress',        label: 'Прохождение',   icon: BarChart3       },
 ]
 
 export default function Sidebar() {
