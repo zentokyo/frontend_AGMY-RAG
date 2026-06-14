@@ -9,6 +9,7 @@
     "dev:chat": "npm --prefix apps/chat-frontend run dev",
     "build": "npm --prefix apps/admin-frontend run build",
     "build:chat": "npm --prefix apps/chat-frontend run build",
+    "rebuild": "node scripts/rebuild.mjs",
     "start": "npm run build && docker compose up --remove-orphans assistant_backend",
     "install:all": "npm install && npm --prefix apps/admin-frontend install && npm --prefix apps/chat-frontend install && npm --prefix apps/web-frontend install",
     "db:migrate": "docker compose run --rm assistant_backend python -m src.cli.migrate",

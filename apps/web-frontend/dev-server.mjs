@@ -56,6 +56,7 @@ function startVite(name, relativeDir, port, base, hmrPath) {
     ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
     {
       cwd,
+      shell: true,
       env: {
         ...process.env,
         VITE_API_BASE: apiBase,
