@@ -458,7 +458,13 @@ async def _update_course_progress(
                 INSERT INTO user_topic_progress (user_id, topic_id, status, attempts, best_score, last_exam_id, updated_at)
                 VALUES (:user_id, :topic_id, :status, 1, CAST(:score AS numeric), :exam_id, NOW())
                 ON CONFLICT (user_id, topic_id) DO UPDATE SET
-                  status = :status,
+                  status = CASE
+                    WHEN user_topic_progress.status = 'passed'
+                      OR user_topic_progress.best_score >= CAST(:pass_threshold AS numeric)
+                      OR CAST(:score AS numeric) >= CAST(:pass_threshold AS numeric)
+                    THEN 'passed'
+                    ELSE :status
+                  END,
                   attempts = user_topic_progress.attempts + 1,
                   best_score = GREATEST(user_topic_progress.best_score, CAST(:score AS numeric)),
                   last_exam_id = :exam_id,
@@ -470,6 +476,7 @@ async def _update_course_progress(
                 "topic_id": block_topic_id,
                 "status": progress_status,
                 "score": score,
+                "pass_threshold": PASS_THRESHOLD,
                 "exam_id": exam_id,
             },
         )
@@ -481,7 +488,13 @@ async def _update_course_progress(
                 INSERT INTO user_block_progress (user_id, block_id, status, attempts, best_score, last_exam_id, updated_at)
                 VALUES (:user_id, :block_id, :status, 1, CAST(:score AS numeric), :exam_id, NOW())
                 ON CONFLICT (user_id, block_id) DO UPDATE SET
-                  status = :status,
+                  status = CASE
+                    WHEN user_block_progress.status = 'passed'
+                      OR user_block_progress.best_score >= CAST(:pass_threshold AS numeric)
+                      OR CAST(:score AS numeric) >= CAST(:pass_threshold AS numeric)
+                    THEN 'passed'
+                    ELSE :status
+                  END,
                   attempts = user_block_progress.attempts + 1,
                   best_score = GREATEST(user_block_progress.best_score, CAST(:score AS numeric)),
                   last_exam_id = :exam_id,
@@ -493,6 +506,7 @@ async def _update_course_progress(
                 "block_id": course_block_id,
                 "status": progress_status,
                 "score": score,
+                "pass_threshold": PASS_THRESHOLD,
                 "exam_id": exam_id,
             },
         )
@@ -504,17 +518,30 @@ async def _update_course_progress(
                 INSERT INTO user_course_progress (user_id, status, attempts, best_score, last_exam_id, completed_at)
                 VALUES (:user_id, :status, 1, CAST(:score AS numeric), :exam_id, :completed_at)
                 ON CONFLICT (user_id) DO UPDATE SET
-                  status = :status,
+                  status = CASE
+                    WHEN user_course_progress.status = 'passed'
+                      OR user_course_progress.best_score >= CAST(:pass_threshold AS numeric)
+                      OR CAST(:score AS numeric) >= CAST(:pass_threshold AS numeric)
+                    THEN 'passed'
+                    ELSE :status
+                  END,
                   attempts = user_course_progress.attempts + 1,
                   best_score = GREATEST(user_course_progress.best_score, CAST(:score AS numeric)),
                   last_exam_id = :exam_id,
-                  completed_at = :completed_at
+                  completed_at = CASE
+                    WHEN :status = 'passed' THEN :completed_at
+                    WHEN user_course_progress.status = 'passed'
+                      OR user_course_progress.best_score >= CAST(:pass_threshold AS numeric)
+                    THEN user_course_progress.completed_at
+                    ELSE NULL
+                  END
                 """
             ),
             {
                 "user_id": user_id,
                 "status": progress_status,
                 "score": score,
+                "pass_threshold": PASS_THRESHOLD,
                 "exam_id": exam_id,
                 "completed_at": datetime.now(timezone.utc) if is_passed else None,
             },

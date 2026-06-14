@@ -15,6 +15,7 @@ const { query, closeDb } = await import('./db.js')
 
 const baseUrl = process.env.PYTHON_API_URL
 let accessToken
+let userId
 
 const themeId     = randomUUID()
 const examThemeId = randomUUID()
@@ -181,6 +182,7 @@ test.before(async () => {
   assert.equal(regRes.status, 201)
   const regBody = await regRes.json()
   accessToken = regBody.accessToken
+  userId = regBody.user.id
 })
 
 test.after(async () => {
@@ -287,6 +289,44 @@ test('block test unlocked after all topics passed', async () => {
   assert.equal(res.status, 200)
   const body = await res.json()
   assert.equal(body.block_test_unlocked, true, 'block test must unlock after all topics passed')
+})
+
+// ── Regression: a lower retake must not lock already unlocked content ────────
+test('best score keeps next topic unlocked after a lower retake', async () => {
+  const { rows } = await query(
+    `INSERT INTO block_topic (block_id, title, topic_order, exam_theme_id, theme_id)
+     VALUES ($1, 'Course E2E Topic 2', 2, $2, $3) RETURNING id`,
+    [blockId, examThemeId, themeId]
+  )
+  const secondTopicId = rows[0].id
+
+  try {
+    await query(
+      `UPDATE user_topic_progress
+       SET status = 'failed',
+           attempts = attempts + 1,
+           best_score = GREATEST(best_score, 1.0),
+           updated_at = NOW()
+       WHERE user_id = $1 AND topic_id = $2`,
+      [userId, topicId]
+    )
+
+    const res = await fetch(`${baseUrl}/api/app/course/blocks/${blockId}`, { headers: auth() })
+    assert.equal(res.status, 200)
+    const body = await res.json()
+    const firstTopic = body.topics.find((topic) => topic.id === topicId)
+    const secondTopic = body.topics.find((topic) => topic.id === secondTopicId)
+
+    assert.equal(firstTopic?.user_status, 'passed')
+    assert.equal(secondTopic?.is_unlocked, true, 'next topic must stay unlocked by best score')
+  } finally {
+    await query(`DELETE FROM block_topic WHERE id = $1`, [secondTopicId])
+  }
+
+  const singleTopicRes = await fetch(`${baseUrl}/api/app/course/blocks/${blockId}`, { headers: auth() })
+  assert.equal(singleTopicRes.status, 200)
+  const singleTopicBody = await singleTopicRes.json()
+  assert.equal(singleTopicBody.block_test_unlocked, true, 'block test must stay unlocked by best score')
 })
 
 // ── POST block exam → answer all correctly → block passed ───────────────────

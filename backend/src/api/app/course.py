@@ -43,11 +43,18 @@ async def get_course_blocks_handler(
               cb.title,
               cb.description,
               cb.block_order,
-              COALESCE(ubp.status, 'not_started') AS user_status,
+              CASE
+                WHEN COALESCE(ubp.best_score, 0) >= CAST(:pass_threshold AS numeric) THEN 'passed'
+                ELSE COALESCE(ubp.status, 'not_started')
+              END AS user_status,
               COALESCE(ubp.best_score, 0)::float AS best_score,
               COALESCE(ubp.attempts, 0)::int AS attempts,
               COUNT(bt.id)::int AS topics_total,
-              COUNT(CASE WHEN COALESCE(utp.status, 'not_started') = 'passed' THEN 1 END)::int AS topics_passed
+              COUNT(CASE
+                WHEN COALESCE(utp.best_score, 0) >= CAST(:pass_threshold AS numeric)
+                  OR COALESCE(utp.status, 'not_started') = 'passed'
+                THEN 1
+              END)::int AS topics_passed
             FROM course_block cb
             LEFT JOIN block_topic bt ON bt.block_id = cb.id
             LEFT JOIN user_topic_progress utp ON utp.topic_id = bt.id AND utp.user_id = :user_id
@@ -56,7 +63,7 @@ async def get_course_blocks_handler(
             ORDER BY cb.block_order ASC
             """
         ),
-        {"user_id": user_id},
+        {"user_id": user_id, "pass_threshold": PASS_THRESHOLD},
     )
     blocks = [dict(row) for row in blocks_result.mappings().all()]
     result = [
@@ -70,12 +77,20 @@ async def get_course_blocks_handler(
     progress_result = await session.execute(
         text(
             """
-            SELECT status, best_score::float, attempts, completed_at, last_exam_id
+            SELECT
+              CASE
+                WHEN COALESCE(best_score, 0) >= CAST(:pass_threshold AS numeric) THEN 'passed'
+                ELSE status
+              END AS status,
+              best_score::float,
+              attempts,
+              completed_at,
+              last_exam_id
             FROM user_course_progress
             WHERE user_id = :user_id
             """
         ),
-        {"user_id": user_id},
+        {"user_id": user_id, "pass_threshold": PASS_THRESHOLD},
     )
     course_progress = progress_result.mappings().first()
     all_blocks_passed = bool(result) and all(block["user_status"] == "passed" for block in result)
@@ -106,7 +121,10 @@ async def get_course_block_handler(
               cb.title,
               cb.description,
               cb.block_order,
-              COALESCE(ubp.status, 'not_started') AS user_status,
+              CASE
+                WHEN COALESCE(ubp.best_score, 0) >= CAST(:pass_threshold AS numeric) THEN 'passed'
+                ELSE COALESCE(ubp.status, 'not_started')
+              END AS user_status,
               COALESCE(ubp.best_score, 0)::float AS best_score,
               COALESCE(ubp.attempts, 0)::int AS attempts,
               ubp.last_exam_id
@@ -115,7 +133,7 @@ async def get_course_block_handler(
             WHERE cb.id = :block_id
             """
         ),
-        {"user_id": user_id, "block_id": block_id},
+        {"user_id": user_id, "block_id": block_id, "pass_threshold": PASS_THRESHOLD},
     )
     block = block_result.mappings().first()
     if not block:
@@ -133,7 +151,10 @@ async def get_course_block_handler(
               bt.topic_order,
               bt.exam_theme_id,
               bt.theme_id,
-              COALESCE(utp.status, 'not_started') AS user_status,
+              CASE
+                WHEN COALESCE(utp.best_score, 0) >= CAST(:pass_threshold AS numeric) THEN 'passed'
+                ELSE COALESCE(utp.status, 'not_started')
+              END AS user_status,
               COALESCE(utp.best_score, 0)::float AS best_score,
               COALESCE(utp.attempts, 0)::int AS attempts,
               utp.last_exam_id
@@ -143,7 +164,7 @@ async def get_course_block_handler(
             ORDER BY bt.topic_order ASC
             """
         ),
-        {"user_id": user_id, "block_id": block_id},
+        {"user_id": user_id, "block_id": block_id, "pass_threshold": PASS_THRESHOLD},
     )
     topics = [dict(row) for row in topics_result.mappings().all()]
     topics_with_unlock = [
@@ -182,7 +203,10 @@ async def get_course_topic_handler(
               bt.exam_theme_id,
               bt.theme_id,
               bt.block_id,
-              COALESCE(utp.status, 'not_started') AS user_status,
+              CASE
+                WHEN COALESCE(utp.best_score, 0) >= CAST(:pass_threshold AS numeric) THEN 'passed'
+                ELSE COALESCE(utp.status, 'not_started')
+              END AS user_status,
               COALESCE(utp.best_score, 0)::float AS best_score,
               COALESCE(utp.attempts, 0)::int AS attempts,
               utp.last_exam_id
@@ -191,7 +215,7 @@ async def get_course_topic_handler(
             WHERE bt.id = :topic_id AND bt.block_id = :block_id
             """
         ),
-        {"user_id": user_id, "topic_id": topic_id, "block_id": block_id},
+        {"user_id": user_id, "topic_id": topic_id, "block_id": block_id, "pass_threshold": PASS_THRESHOLD},
     )
     topic = topic_result.mappings().first()
     if not topic:
@@ -357,13 +381,17 @@ async def create_block_exam_handler(
                 """
                 SELECT
                   COUNT(bt.id)::int AS total,
-                  COUNT(CASE WHEN COALESCE(utp.status, 'not_started') = 'passed' THEN 1 END)::int AS passed
+                  COUNT(CASE
+                    WHEN COALESCE(utp.best_score, 0) >= CAST(:pass_threshold AS numeric)
+                      OR COALESCE(utp.status, 'not_started') = 'passed'
+                    THEN 1
+                  END)::int AS passed
                 FROM block_topic bt
                 LEFT JOIN user_topic_progress utp ON utp.topic_id = bt.id AND utp.user_id = :user_id
                 WHERE bt.block_id = :block_id
                 """
             ),
-            {"user_id": user_id, "block_id": block_id},
+            {"user_id": user_id, "block_id": block_id, "pass_threshold": PASS_THRESHOLD},
         )
         topic_status = topic_status_result.mappings().first()
         if topic_status["total"] == 0:
@@ -441,12 +469,16 @@ async def create_final_exam_handler(
                 """
                 SELECT
                   COUNT(cb.id)::int AS total,
-                  COUNT(CASE WHEN COALESCE(ubp.status, 'not_started') = 'passed' THEN 1 END)::int AS passed
+                  COUNT(CASE
+                    WHEN COALESCE(ubp.best_score, 0) >= CAST(:pass_threshold AS numeric)
+                      OR COALESCE(ubp.status, 'not_started') = 'passed'
+                    THEN 1
+                  END)::int AS passed
                 FROM course_block cb
                 LEFT JOIN user_block_progress ubp ON ubp.block_id = cb.id AND ubp.user_id = :user_id
                 """
             ),
-            {"user_id": user_id},
+            {"user_id": user_id, "pass_threshold": PASS_THRESHOLD},
         )
         block_status = block_status_result.mappings().first()
         if block_status["total"] == 0:
@@ -638,13 +670,17 @@ async def _is_block_unlocked(session: AsyncSession, user_id: int, block_order: i
     progress_result = await session.execute(
         text(
             """
-            SELECT ubp.status
+            SELECT
+              CASE
+                WHEN COALESCE(ubp.best_score, 0) >= CAST(:pass_threshold AS numeric) THEN 'passed'
+                ELSE ubp.status
+              END AS status
             FROM user_block_progress ubp
             JOIN course_block cb ON cb.id = ubp.block_id
             WHERE ubp.user_id = :user_id AND cb.block_order = :block_order
             """
         ),
-        {"user_id": user_id, "block_order": previous["block_order"]},
+        {"user_id": user_id, "block_order": previous["block_order"], "pass_threshold": PASS_THRESHOLD},
     )
     progress = progress_result.mappings().first()
     return progress["status"] == "passed" if progress else False
@@ -687,7 +723,11 @@ async def _is_topic_unlocked(
     progress_result = await session.execute(
         text(
             """
-            SELECT utp.status
+            SELECT
+              CASE
+                WHEN COALESCE(utp.best_score, 0) >= CAST(:pass_threshold AS numeric) THEN 'passed'
+                ELSE utp.status
+              END AS status
             FROM user_topic_progress utp
             JOIN block_topic bt ON bt.id = utp.topic_id
             WHERE utp.user_id = :user_id
@@ -695,7 +735,12 @@ async def _is_topic_unlocked(
               AND bt.topic_order = :topic_order
             """
         ),
-        {"user_id": user_id, "block_id": block_id, "topic_order": previous["topic_order"]},
+        {
+            "user_id": user_id,
+            "block_id": block_id,
+            "topic_order": previous["topic_order"],
+            "pass_threshold": PASS_THRESHOLD,
+        },
     )
     progress = progress_result.mappings().first()
     return progress["status"] == "passed" if progress else False
