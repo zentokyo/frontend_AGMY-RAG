@@ -11,7 +11,7 @@ function ScoreRing({ score }) {
   const passed = score >= 0.7
   return (
     <div className={clsx(
-      'flex h-24 w-24 flex-col items-center justify-center rounded-full border-4',
+      'flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full border-4',
       passed ? 'border-green-400 bg-green-50' : 'border-red-300 bg-red-50'
     )}>
       <span className={clsx('text-2xl font-bold', passed ? 'text-green-700' : 'text-red-600')}>
@@ -147,7 +147,7 @@ export default function ExamResultsPage() {
         {isReady ? (
           <ScoreRing score={result.score} />
         ) : (
-          <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full border-4 border-blue-200 bg-blue-50">
+          <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full border-4 border-blue-200 bg-blue-50">
             <Loader2 size={24} className="animate-spin text-blue-600" />
             <span className="mt-1 text-xs font-medium text-blue-700">Проверка</span>
           </div>

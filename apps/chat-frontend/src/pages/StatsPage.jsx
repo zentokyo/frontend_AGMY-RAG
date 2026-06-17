@@ -99,11 +99,13 @@ export default function StatsPage() {
       ) : (
         <>
           {/* Main Grid */}
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {/* Circle Progress + Quick Overview */}
-            <div className="card bg-white border-slate-200 p-6 flex flex-col justify-between items-center sm:flex-row md:flex-col sm:justify-around md:justify-between col-span-1">
-              <AccuracyGauge accuracy={globalAccuracy} />
-              <div className="w-full mt-4 sm:mt-0 md:mt-4 space-y-3">
+            <div className="card bg-white border-slate-200 p-6 flex flex-col justify-between items-center sm:flex-row md:flex-col sm:justify-around md:justify-between col-span-1 min-w-0">
+              <div className="shrink-0">
+                <AccuracyGauge accuracy={globalAccuracy} />
+              </div>
+              <div className="w-full sm:w-auto sm:flex-1 sm:max-w-xs md:w-full md:max-w-none mt-4 sm:mt-0 md:mt-4 space-y-3 min-w-0">
                 <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                   <div className="flex items-center gap-2">
                     <HelpCircle size={16} className="text-blue-500" />
@@ -141,12 +143,12 @@ export default function StatsPage() {
                   {themeStats.map((theme, i) => {
                     const pct = Math.round((theme.accuracy || 0) * 100)
                     return (
-                      <div key={i} className="space-y-1.5">
-                        <div className="flex justify-between text-xs font-semibold">
-                          <span className="text-slate-700 truncate max-w-[75%]">
+                      <div key={i} className="space-y-1.5 min-w-0">
+                        <div className="flex justify-between items-center text-xs font-semibold gap-2 min-w-0">
+                          <span className="text-slate-700 truncate flex-1 min-w-0" title={theme.theme_title}>
                             {theme.theme_title}
                           </span>
-                          <span className="text-slate-500">
+                          <span className="text-slate-500 shrink-0">
                             {theme.correct_answers}/{theme.total_answers} ({pct}%)
                           </span>
                         </div>
@@ -185,10 +187,10 @@ export default function StatsPage() {
             ) : (
               <div className="mt-4 space-y-4">
                 {/* Last Exam Score Card */}
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-4">
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Тема теста</span>
-                    <h3 className="font-bold text-slate-800">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-4 min-w-0">
+                  <div className="space-y-1 min-w-0">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Тема теста</span>
+                    <h3 className="font-bold text-slate-800 break-words">
                       {lastStats.data.theme_title || 'Смешанный тест'}
                     </h3>
                   </div>
