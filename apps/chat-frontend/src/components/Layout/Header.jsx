@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, User, Menu } from 'lucide-react'
 import useAuthStore from '../../store/authStore.js'
 
-export default function Header() {
+export default function Header({ onMenuClick }) {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -16,8 +16,18 @@ export default function Header() {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
-      <div className="min-w-0 text-sm text-slate-500 sm:text-base">
-        Добро пожаловать в личный кабинет
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 md:hidden focus:outline-none shrink-0"
+          title="Открыть меню"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="min-w-0 text-sm text-slate-500 sm:text-base truncate">
+          Добро пожаловать в личный кабинет
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
